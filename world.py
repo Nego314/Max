@@ -57,15 +57,45 @@ class World:
     def move_unit_on_grid(self, unit, new_tx, new_ty):
         """
         Обновляет запись в occupied при переходе юнита между клетками.
-        Вызывается юнитом, когда он достиг центра новой клетки.
+        Проверяет, что:
+          - юнит действительно владеет старой клеткой (иначе — рассинхрон);
+          - новая клетка не занята другим юнитом;
+          - новая клетка проходима.
+        Если проверки не проходят — ничего не меняем (юнит остаётся на месте).
         """
         old_key = (unit.tile_x, unit.tile_y)
-        if self.occupied.get(old_key) is unit:
-            del self.occupied[old_key]
+        new_key = (new_tx, new_ty)
 
+        # Проверка 1: юнит должен владеть своей старой клеткой
+        if self.occupied.get(old_key) is not unit:
+            # Рассинхрон: occupied не знает про этого юнита на этой клетке.
+            # Исправляем: удаляем любую запись на old_key и ставим юнита обратно.
+            if old_key in self.occupied:
+                del self.occupied[old_key]
+            self.occupied[old_key] = unit
+            # Всё равно не двигаем — сначала пусть мир придёт в согласованное состояние
+            return False
+
+        # Проверка 2: новая клетка в границах
+        if new_tx < 0 or new_ty < 0 \
+           or new_tx >= self.tilemap.width or new_ty >= self.tilemap.height:
+            return False
+
+        # Проверка 3: новая клетка проходима
+        if not self.is_tile_walkable(new_tx, new_ty):
+            return False
+
+        # Проверка 4: новая клетка не занята другим юнитом
+        occupant = self.occupied.get(new_key)
+        if occupant is not None and occupant is not unit:
+            return False
+
+        # Все проверки пройдены — перемещаем
+        del self.occupied[old_key]
         unit.tile_x = new_tx
         unit.tile_y = new_ty
-        self.occupied[(new_tx, new_ty)] = unit
+        self.occupied[new_key] = unit
+        return True
 
     # --- Проверки клеток ---
 

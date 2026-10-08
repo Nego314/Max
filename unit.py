@@ -55,9 +55,29 @@ class Unit:
     def order_move_to_tile(self, world, goal_tile):
         """
         Приказ идти в клетку goal_tile.
-        Строит путь A*. Если пути нет — юнит остаётся (path пустой).
+        Если цель вне карты, непроходима или занята — приказ игнорируется.
         """
-        self.goal_tile = goal_tile
+        # Проверка 1: цель — корректный кортеж из двух чисел
+        if not goal_tile or len(goal_tile) != 2:
+            return
+
+        tx, ty = goal_tile
+
+        # Проверка 2: в границах карты
+        if tx < 0 or ty < 0 or tx >= world.tilemap.width or ty >= world.tilemap.height:
+            return
+
+        # Проверка 3: цель проходима (вода/скалы — нельзя)
+        if not world.is_tile_walkable(tx, ty):
+            return
+
+        # Проверка 4: цель не занята другим юнитом
+        occupant = world.unit_at(tx, ty)
+        if occupant is not None and occupant is not self:
+            return
+
+        # Все проверки пройдены — ставим цель и строим путь
+        self.goal_tile = (tx, ty)
         self.repath_attempts = 0
         self.repath_timer = 0.0
         self._build_path(world)
@@ -115,8 +135,13 @@ class Unit:
                 self._wait_and_repath(dt, world)
                 return
 
-            # Перемещаем юнита в новую клетку
-            world.move_unit_on_grid(self, tx, ty)
+            # Перемещаем юнита в новую клетку (с проверкой)
+            moved = world.move_unit_on_grid(self, tx, ty)
+            if not moved:
+                # Не смогли перейти — пробуем перестроить путь
+                self._wait_and_repath(dt, world)
+                return
+
             self.x, self.y = cx, cy
             self.path.pop(0)
 
