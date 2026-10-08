@@ -1,5 +1,7 @@
 import math
 import pygame
+import pathfinding
+from settings import TILE_SIZE
 
 
 class Unit:
@@ -15,60 +17,79 @@ class Unit:
 
         self.target_x = None
         self.target_y = None
+        self.path = []
+
 
     def contains_point(self, world_x, world_y):
         dx = world_x - self.x
         dy = world_y - self.y
         return dx * dx + dy * dy <= self.radius * self.radius
 
-    def move_to(self, world_x, world_y):
+    def move_to(self, world_x, world_y, tilemap=None):
+        """
+        Приказ: идти в точку (мировые координаты).
+        Если передан tilemap — строим путь A*.
+        """
         self.target_x = float(world_x)
         self.target_y = float(world_y)
 
-    def update(self, dt, tilemap):
-        """Движение к цели с учётом препятствий (простая версия — без A*)."""
-        if self.target_x is None or self.target_y is None:
+        if tilemap is None:
+            # Простая прямая (на случай, если карты нет)
+            self.path = [(self.target_x, self.target_y)]
             return
 
-        dx = self.target_x - self.x
-        dy = self.target_y - self.y
+        # Пробуем A*
+        path = pathfinding.find_path(
+            tilemap,
+            (self.x, self.y),
+            (self.target_x, self.target_y),
+            TILE_SIZE,
+        )
+        if path:
+            self.path = pathfinding.smooth_path(path)
+        else:
+            # Путь не найден — пробуем прямую (юнит дойдёт «как сможет»)
+            self.path = [(self.target_x, self.target_y)]
+
+    def update(self, dt, tilemap):
+        """Движение по пути с учётом препятствий."""
+        # Если пути нет — идём к target напрямую (старое поведение)
+        if not self.path:
+            if self.target_x is None:
+                return
+            self.path = [(self.target_x, self.target_y)]
+
+        # Берём первую точку пути
+        tx, ty = self.path[0]
+
+        dx = tx - self.x
+        dy = ty - self.y
         dist = math.hypot(dx, dy)
 
-        if dist < 2.0:
-            self.x = self.target_x
-            self.y = self.target_y
-            self.target_x = None
-            self.target_y = None
+        # Дошли до точки пути — убираем её и берём следующую
+        if dist < 4.0:
+            self.path.pop(0)
+            if not self.path:
+                # Путь закончился
+                self.target_x = None
+                self.target_y = None
             return
 
         step = self.speed * dt
         if step > dist:
             step = dist
 
-        # Куда хотим сдвинуться
         nx = self.x + dx / dist * step
         ny = self.y + dy / dist * step
 
-        # Пробуем полное смещение
+        # Проверка коллизии (страховка)
         if tilemap.is_walkable_circle(nx, ny, self.radius):
             self.x, self.y = nx, ny
-            return
+        else:
+            # Путь сломался — перестроим
+            if self.target_x is not None:
+                self.move_to(self.target_x, self.target_y, tilemap)
 
-        # Не получилось — пробуем только по X
-        if tilemap.is_walkable_circle(nx, self.y, self.radius):
-            self.x = nx
-            return
-
-        # Только по Y
-        if tilemap.is_walkable_circle(self.x, ny, self.radius):
-            self.y = ny
-            return
-
-        # Всё заблокировано — стоим (позже заменим на A*)
-        # Пока просто сбрасываем цель, чтобы юнит не «дрожал» у стены
-        # (раскомментируй, если хочешь, чтобы юнит останавливался)
-        # self.target_x = None
-        # self.target_y = None
 
     def draw(self, surface, camera):
         sx, sy = camera.world_to_screen(self.x, self.y)

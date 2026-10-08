@@ -139,10 +139,9 @@ def main():
                     for i, u in enumerate(selected):
                         row = i // cols
                         col = i % cols
-                        # Смещение от центра группы
                         offset_x = (col - (cols - 1) / 2) * spacing
                         offset_y = (row - (cols - 1) / 2) * spacing
-                        u.move_to(world_x + offset_x, world_y + offset_y)
+                        u.move_to(world_x + offset_x, world_y + offset_y, tilemap)
 
         # --- Логика ---
         keys = pygame.key.get_pressed()
