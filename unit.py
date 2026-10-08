@@ -95,9 +95,7 @@ class Unit:
             self.path = []
             return
 
-        # Целевая клетка должна быть свободна (кроме случая, когда юнит уже «едет»)
         if not world.is_tile_free(goal[0], goal[1], ignore_unit=self):
-            # Пробуем найти рядом
             alt = world.find_nearest_free_tile(
                 goal[0], goal[1], 3, ignore_unit=self
             )
@@ -108,8 +106,29 @@ class Unit:
             self.goal_tile = goal
 
         path = pathfinding.find_path(world, start, goal, ignore_unit=self)
-        self.path = path if path else []
+        if not path:
+            self.path = []
+            return
 
+        # Освобождаем все старые брони, кроме текущей клетки
+        world.release_all_except_current(self)
+
+        # Резервируем ВСЕ клетки пути за собой
+        # (это гарантирует, что никто не встанет на наш маршрут)
+        reserved = []
+        for (tx, ty) in path:
+            if world.reserve_tile(self, tx, ty):
+                reserved.append((tx, ty))
+            else:
+                # Не смогли зарезервировать — путь заблокирован,
+                # освобождаем то, что уже заняли, и пробуем позже
+                for (rx, ry) in reserved:
+                    if (rx, ry) != (self.tile_x, self.tile_y):
+                        world.release_tile(self, rx, ry)
+                self.path = []
+                return
+
+        self.path = path
     # --- Обновление ---
 
     def update(self, dt, world):
@@ -117,7 +136,6 @@ class Unit:
         if not self.path:
             return
 
-        # Целевая клетка следующего шага
         next_tile = self.path[0]
         tx, ty = next_tile
         cx, cy = self._tile_center(tx, ty)
@@ -128,20 +146,16 @@ class Unit:
 
         # Дошли до центра клетки
         if dist < 2.0:
-            # Проверяем: не занята ли клетка другим юнитом (кроме нас)
+            # Проверка: клетка должна быть нашей (мы её забронировали)
             occupant = world.unit_at(tx, ty)
             if occupant is not None and occupant is not self:
-                # Клетка занята — ждём и пытаемся перестроить
+                # Кто-то другой стоит на нашей брони — рассинхрон
+                # Освобождаем бронь и перестраиваем путь
                 self._wait_and_repath(dt, world)
                 return
 
-            # Перемещаем юнита в новую клетку (с проверкой)
-            moved = world.move_unit_on_grid(self, tx, ty)
-            if not moved:
-                # Не смогли перейти — пробуем перестроить путь
-                self._wait_and_repath(dt, world)
-                return
-
+            # Перемещаем юнита: обновляем tile_x/tile_y
+            world.move_unit_on_grid(self, tx, ty)
             self.x, self.y = cx, cy
             self.path.pop(0)
 
@@ -157,6 +171,7 @@ class Unit:
         self.x += dx / dist * step
         self.y += dy / dist * step
 
+
     def _wait_and_repath(self, dt, world):
         """Юнит стоит и раз в REPATH_INTERVAL пробует перестроить путь."""
         self.repath_timer += dt
@@ -166,11 +181,13 @@ class Unit:
         self.repath_timer = 0.0
         self.repath_attempts += 1
 
+        # Снимаем старые брони перед перестроением
+        world.release_all_except_current(self)
+
         self._build_path(world)
 
         if not self.path:
             if self.repath_attempts >= REPATH_MAX_ATTEMPTS:
-                # Сдаёмся — окончательно стоим
                 self.goal_tile = None
 
     # --- Отрисовка ---

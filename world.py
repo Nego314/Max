@@ -143,3 +143,35 @@ class World:
                     if self.is_tile_free(nx, ny, for_team, ignore_unit):
                         return (nx, ny)
         return None
+
+    def reserve_tile(self, unit, tx, ty):
+        """
+        Бронирует клетку (tx, ty) за юнитом, не перемещая его туда физически.
+        Если клетка уже занята кем-то другим — возвращает False.
+        """
+        key = (tx, ty)
+        occupant = self.occupied.get(key)
+        if occupant is not None and occupant is not unit:
+            return False
+
+        self.occupied[key] = unit
+        return True
+
+    def release_tile(self, unit, tx, ty):
+        """Снимает бронь с клетки, если она принадлежит юниту."""
+        key = (tx, ty)
+        if self.occupied.get(key) is unit:
+            del self.occupied[key]
+
+    def release_all_except_current(self, unit):
+        """
+        Снимает все брони юнита, кроме его текущей клетки (tile_x, tile_y).
+        Полезно при отмене пути или переприказе.
+        """
+        current_key = (unit.tile_x, unit.tile_y)
+        to_release = []
+        for key, u in self.occupied.items():
+            if u is unit and key != current_key:
+                to_release.append(key)
+        for key in to_release:
+            del self.occupied[key]
