@@ -92,8 +92,9 @@ class Unit:
 def resolve_unit_collisions(units):
     """
     Раздвигает пересекающихся юнитов.
-    Простая физика: если два круга пересекаются — расталкиваем их поровну.
-    Вызывается раз в кадр после update() всех юнитов.
+    Двигающиеся юниты уступают стоящим: стоящий остаётся на месте,
+    движущийся берёт на себя полный сдвиг.
+    Если оба движутся — расталкиваются поровну.
     """
     n = len(units)
     for i in range(n):
@@ -114,22 +115,37 @@ def resolve_unit_collisions(units):
 
             # Случай «ровно в одной точке» — раздвигаем в случайном направлении
             if dist < 0.001:
-                import random
                 angle = random.random() * 6.28318
-                import math as _m
-                dx = _m.cos(angle)
-                dy = _m.sin(angle)
+                dx = math.cos(angle)
+                dy = math.sin(angle)
                 dist = 0.001
 
-            # Нормализованный вектор от A к B
             nx = dx / dist
             ny = dy / dist
 
-            # Насколько нужно раздвинуть, чтобы они коснулись
             overlap = min_dist - dist
-            push = overlap / 2.0
 
-            a.x -= nx * push
-            a.y -= ny * push
-            b.x += nx * push
-            b.y += ny * push
+            # Определяем, кто движется (у кого есть цель)
+            a_moving = a.target_x is not None
+            b_moving = b.target_x is not None
+
+            if a_moving and b_moving:
+                # Оба движутся — сдвиг пополам
+                push_a = overlap / 2.0
+                push_b = overlap / 2.0
+            elif a_moving and not b_moving:
+                # Движется только A — он и уступает полностью
+                push_a = overlap
+                push_b = 0.0
+            elif b_moving and not a_moving:
+                # Движется только B — он и уступает полностью
+                push_a = 0.0
+                push_b = overlap
+            else:
+                # Оба стоят — не трогаем (не должны пересекаться, но на всякий случай)
+                continue
+
+            a.x -= nx * push_a
+            a.y -= ny * push_a
+            b.x += nx * push_b
+            b.y += ny * push_b
