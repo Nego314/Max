@@ -1,5 +1,7 @@
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
+#SCREEN_WIDTH = 1280
+SCREEN_WIDTH = 1920
+#SCREEN_HEIGHT = 720
+SCREEN_HEIGHT = 1080
 FPS = 60
 
 # --- Тайлы ---
@@ -28,11 +30,21 @@ TILE_COLORS = {
 
 # --- Отладка ---
 SHOW_GRID = True   # рисовать линии сетки
+#SHOW_GRID = False
 
 # --- Камера ---
 CAMERA_SPEED_KEYS = 700        # пикселей в секунду (стрелки/WASD)
 CAMERA_SPEED_EDGE = 900        # пикселей в секунду (у края экрана)
-CAMERA_EDGE_MARGIN = 20        # ширина "горячей зоны" у края, пикселей
+#CAMERA_EDGE_MARGIN = 40        # ширина "горячей зоны" у края, пикселей
+CAMERA_EDGE_MARGIN = 80
 CAMERA_ZOOM_STEP = 0.1         # шаг зума колёсиком (пока не используем)
 CAMERA_ZOOM_MIN = 0.5
 CAMERA_ZOOM_MAX = 2.0
+
+# --- Проходимость тайлов ---
+WALKABLE_TILES = {
+    TILE_GRASS: True,
+    TILE_SAND:  True,
+    TILE_WATER: False,   # вода непроходима
+    TILE_ROCK:  False,   # скалы непроходимы
+}

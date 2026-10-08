@@ -5,7 +5,8 @@ import sys
 from settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, COLOR_BG, COLOR_TEXT
 from tilemap import TileMap
 from camera import Camera
-from unit import Unit
+#from unit import Unit
+from unit import Unit, resolve_unit_collisions
 
 
 pygame.init()
@@ -149,7 +150,11 @@ def main():
         camera.update(dt, keys, mouse_pos)
 
         for u in units:
-            u.update(dt)
+            u.update(dt, tilemap)
+
+        # Расталкивание юнитов (несколько итераций для стабильности)
+        for _ in range(3):
+            resolve_unit_collisions(units)
 
         # --- Отрисовка ---
         screen.fill(COLOR_BG)

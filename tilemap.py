@@ -59,3 +59,37 @@ class TileMap:
 
                 if SHOW_GRID:
                     pygame.draw.rect(surface, (0, 0, 0), rect, 1)
+
+    def is_walkable_world(self, world_x, world_y):
+        """Проверяет, проходим ли тайл в мировых координатах."""
+        tile_x = int(world_x // TILE_SIZE)
+        tile_y = int(world_y // TILE_SIZE)
+
+        # За пределами карты — непроходимо
+        if tile_x < 0 or tile_y < 0 or tile_x >= self.width or tile_y >= self.height:
+            return False
+
+        tile_type = self.tiles[tile_y][tile_x]
+        from settings import WALKABLE_TILES
+        return WALKABLE_TILES.get(tile_type, False)
+
+    def is_walkable_circle(self, world_x, world_y, radius):
+        """
+        Проверяет, что круг целиком лежит на проходимых тайлах.
+        Сэмплируем 8 точек по окружности + центр — дёшево и достаточно.
+        """
+        import math
+
+        # Центр
+        if not self.is_walkable_world(world_x, world_y):
+            return False
+
+        # 8 точек по окружности
+        for i in range(8):
+            angle = i * math.pi / 4
+            px = world_x + math.cos(angle) * radius
+            py = world_y + math.sin(angle) * radius
+            if not self.is_walkable_world(px, py):
+                return False
+
+        return True
