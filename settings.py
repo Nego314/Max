@@ -1,7 +1,12 @@
 # --- Экран ---
-SCREEN_WIDTH = 1920
+SCREEN_WIDTH = 1920      # «логическое» разрешение игры
 SCREEN_HEIGHT = 1080
 FPS = 60
+
+# Режим экрана:
+#   "window"     — обычное окно
+#   "fullscreen" — полноэкранный безрамочный со масштабированием
+SCREEN_MODE = "fullscreen"
 
 # --- Тайлы ---
 TILE_SIZE = 64

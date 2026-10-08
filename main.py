@@ -1,9 +1,10 @@
 import pygame
 import sys
 
+import settings
 from settings import (
-    SCREEN_WIDTH, SCREEN_HEIGHT, FPS, COLOR_BG, COLOR_TEXT,
-    TILE_SIZE, FORMATION_SEARCH_RADIUS,
+    FPS, COLOR_BG, COLOR_TEXT,
+    TILE_SIZE, FORMATION_SEARCH_RADIUS, SCREEN_MODE,
 )
 from tilemap import TileMap
 from camera import Camera
@@ -11,8 +12,19 @@ from unit import Unit
 from world import World
 
 
+# --- Инициализация Pygame ---
 pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+if SCREEN_MODE == "fullscreen":
+    screen = pygame.display.set_mode(
+        (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT),
+        pygame.SCALED | pygame.FULLSCREEN,
+    )
+elif SCREEN_MODE == "window":
+    screen = pygame.display.set_mode(
+        (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
+    )
+
 pygame.display.set_caption("MyRTS — прототип")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("consolas", 20)
@@ -50,7 +62,7 @@ def order_group_move(world, selected_units, click_tile):
     if not selected_units:
         return
 
-    # Находим верхний левый юнит (минимальные tile_x + tile_y)
+    # Находим верхний левый юнит (минимальные tile_y, tile_x)
     anchor = min(selected_units, key=lambda u: (u.tile_y, u.tile_x))
 
     # Относительные смещения от anchor
@@ -64,17 +76,14 @@ def order_group_move(world, selected_units, click_tile):
         want_x = click_tile[0] + dx
         want_y = click_tile[1] + dy
 
-        # Клетка свободна?
         if world.is_tile_free(want_x, want_y, ignore_unit=u):
             goal = (want_x, want_y)
         else:
-            # Ищем ближайшую свободную
             goal = world.find_nearest_free_tile(
                 want_x, want_y, FORMATION_SEARCH_RADIUS, ignore_unit=u
             )
 
         if goal is None:
-            # Совсем некуда — юнит стоит (path не строим)
             u.goal_tile = None
             u.path = []
             continue
@@ -116,8 +125,9 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
@@ -153,17 +163,18 @@ def main():
                     rx1, ry1 = min(x1, x2), min(y1, y2)
                     rx2, ry2 = max(x1, x2), max(y1, y2)
 
+                    # Слишком маленькая рамка = просто клик, ничего не делаем
                     if (rx2 - rx1) < 5 and (ry2 - ry1) < 5:
                         pass
+                    else:
+                        wx1, wy1 = camera.screen_to_world(rx1, ry1)
+                        wx2, wy2 = camera.screen_to_world(rx2, ry2)
 
-                    wx1, wy1 = camera.screen_to_world(rx1, ry1)
-                    wx2, wy2 = camera.screen_to_world(rx2, ry2)
-
-                    for u in world.units:
-                        if u.team != "player":
-                            continue
-                        if wx1 <= u.x <= wx2 and wy1 <= u.y <= wy2:
-                            u.selected = True
+                        for u in world.units:
+                            if u.team != "player":
+                                continue
+                            if wx1 <= u.x <= wx2 and wy1 <= u.y <= wy2:
+                                u.selected = True
 
             elif event.type == pygame.MOUSEMOTION:
                 if dragging:
@@ -176,10 +187,11 @@ def main():
                 selected = [u for u in world.units
                             if u.selected and u.team == "player"]
 
-                # Клик по вражеской или непроходимой клетке — приказ не проходит
+                # Клик по непроходимой клетке — приказ не проходит
                 if not world.is_tile_walkable(*click_tile):
                     continue
-                # Если хотим строго: занятая врагом клетка тоже блокирует
+
+                # Клик по клетке с врагом — приказ не проходит
                 occupant = world.unit_at(*click_tile)
                 if occupant is not None and occupant.team != "player":
                     continue
@@ -199,12 +211,14 @@ def main():
 
         # --- Отрисовка ---
         screen.fill(COLOR_BG)
+
         cam_x, cam_y = camera.offset
         tilemap.draw(screen, cam_x, cam_y)
 
         for u in world.units:
             u.draw(screen, camera)
 
+        # Рамка выделения
         if dragging:
             x1, y1 = drag_start
             x2, y2 = drag_end
@@ -212,7 +226,7 @@ def main():
             rw, rh = abs(x2 - x1), abs(y2 - y1)
             pygame.draw.rect(screen, (255, 230, 80), (rx, ry, rw, rh), 1)
 
-        # Debug
+        # Debug-инфа
         selected_count = sum(1 for u in world.units
                              if u.selected and u.team == "player")
         debug = font.render(
@@ -221,6 +235,7 @@ def main():
             True, COLOR_TEXT,
         )
         screen.blit(debug, (10, 10))
+
         hint = font.render(
             "LMB - select / drag, Shift+LMB - add, RMB - move, ESC - exit",
             True, COLOR_TEXT,
