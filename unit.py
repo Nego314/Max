@@ -1,95 +1,154 @@
 import math
 import pygame
+
 import pathfinding
-from settings import TILE_SIZE
+from settings import (
+    TILE_SIZE, UNIT_RADIUS, UNIT_SPEED,
+    UNIT_COLOR_PLAYER, UNIT_COLOR_ENEMY, UNIT_RADIUS_SELECT,
+    REPATH_INTERVAL, REPATH_MAX_ATTEMPTS,
+)
 
 
 class Unit:
-    def __init__(self, x, y, color=(80, 160, 255), radius=18,
-                 speed=180.0, team="player"):
-        self.x = float(x)
-        self.y = float(y)
-        self.radius = radius
-        self.color = color
+    def __init__(self, tile_x, tile_y, team="player"):
+        self.team = team
+
+        # Сеточная позиция (текущая клетка)
+        self.tile_x = tile_x
+        self.tile_y = tile_y
+
+        # Пиксельные координаты = центр клетки
+        self.x, self.y = self._tile_center(tile_x, tile_y)
+
+        # Параметры (из settings)
+        self.radius = UNIT_RADIUS
+        self.speed = UNIT_SPEED
+        self.color = UNIT_COLOR_PLAYER if team == "player" else UNIT_COLOR_ENEMY
+
         self.selected = False
-        self.speed = speed
-        self.team = team  # "player" или "enemy"
 
-        self.target_x = None
-        self.target_y = None
+        # Путь: список клеток (tx, ty) БЕЗ текущей
         self.path = []
+        # Целевая клетка (для переприказа и пересчёта)
+        self.goal_tile = None
 
+        # Тайминг перестроения
+        self.repath_timer = 0.0
+        self.repath_attempts = 0
+
+    # --- Вспомогательное ---
+
+    @staticmethod
+    def _tile_center(tx, ty):
+        return tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE + TILE_SIZE / 2
+
+    def is_idle(self):
+        return not self.path
 
     def contains_point(self, world_x, world_y):
         dx = world_x - self.x
         dy = world_y - self.y
         return dx * dx + dy * dy <= self.radius * self.radius
 
-    def move_to(self, world_x, world_y, tilemap=None):
-        """
-        Приказ: идти в точку (мировые координаты).
-        Если передан tilemap — строим путь A*.
-        """
-        self.target_x = float(world_x)
-        self.target_y = float(world_y)
+    # --- Приказы ---
 
-        if tilemap is None:
-            # Простая прямая (на случай, если карты нет)
-            self.path = [(self.target_x, self.target_y)]
+    def order_move_to_tile(self, world, goal_tile):
+        """
+        Приказ идти в клетку goal_tile.
+        Строит путь A*. Если пути нет — юнит остаётся (path пустой).
+        """
+        self.goal_tile = goal_tile
+        self.repath_attempts = 0
+        self.repath_timer = 0.0
+        self._build_path(world)
+
+    def _build_path(self, world):
+        """Пересчитывает self.path от текущей клетки к goal_tile."""
+        if self.goal_tile is None:
+            self.path = []
             return
 
-        # Пробуем A*
-        path = pathfinding.find_path(
-            tilemap,
-            (self.x, self.y),
-            (self.target_x, self.target_y),
-            TILE_SIZE,
-        )
-        if path:
-            self.path = pathfinding.smooth_path(path)
-        else:
-            # Путь не найден — пробуем прямую (юнит дойдёт «как сможет»)
-            self.path = [(self.target_x, self.target_y)]
+        start = (self.tile_x, self.tile_y)
+        goal = self.goal_tile
 
-    def update(self, dt, tilemap):
-        """Движение по пути с учётом препятствий."""
-        # Если пути нет — идём к target напрямую (старое поведение)
-        if not self.path:
-            if self.target_x is None:
+        if start == goal:
+            self.path = []
+            return
+
+        # Целевая клетка должна быть свободна (кроме случая, когда юнит уже «едет»)
+        if not world.is_tile_free(goal[0], goal[1], ignore_unit=self):
+            # Пробуем найти рядом
+            alt = world.find_nearest_free_tile(
+                goal[0], goal[1], 3, ignore_unit=self
+            )
+            if alt is None:
+                self.path = []
                 return
-            self.path = [(self.target_x, self.target_y)]
+            goal = alt
+            self.goal_tile = goal
 
-        # Берём первую точку пути
-        tx, ty = self.path[0]
+        path = pathfinding.find_path(world, start, goal, ignore_unit=self)
+        self.path = path if path else []
 
-        dx = tx - self.x
-        dy = ty - self.y
+    # --- Обновление ---
+
+    def update(self, dt, world):
+        """Движение по пути. Если путь оборвался — попытка перестроить."""
+        if not self.path:
+            return
+
+        # Целевая клетка следующего шага
+        next_tile = self.path[0]
+        tx, ty = next_tile
+        cx, cy = self._tile_center(tx, ty)
+
+        dx = cx - self.x
+        dy = cy - self.y
         dist = math.hypot(dx, dy)
 
-        # Дошли до точки пути — убираем её и берём следующую
-        if dist < 4.0:
+        # Дошли до центра клетки
+        if dist < 2.0:
+            # Проверяем: не занята ли клетка другим юнитом (кроме нас)
+            occupant = world.unit_at(tx, ty)
+            if occupant is not None and occupant is not self:
+                # Клетка занята — ждём и пытаемся перестроить
+                self._wait_and_repath(dt, world)
+                return
+
+            # Перемещаем юнита в новую клетку
+            world.move_unit_on_grid(self, tx, ty)
+            self.x, self.y = cx, cy
             self.path.pop(0)
+
             if not self.path:
-                # Путь закончился
-                self.target_x = None
-                self.target_y = None
+                self.goal_tile = None
             return
 
+        # Двигаемся к центру следующей клетки
         step = self.speed * dt
         if step > dist:
             step = dist
 
-        nx = self.x + dx / dist * step
-        ny = self.y + dy / dist * step
+        self.x += dx / dist * step
+        self.y += dy / dist * step
 
-        # Проверка коллизии (страховка)
-        if tilemap.is_walkable_circle(nx, ny, self.radius):
-            self.x, self.y = nx, ny
-        else:
-            # Путь сломался — перестроим
-            if self.target_x is not None:
-                self.move_to(self.target_x, self.target_y, tilemap)
+    def _wait_and_repath(self, dt, world):
+        """Юнит стоит и раз в REPATH_INTERVAL пробует перестроить путь."""
+        self.repath_timer += dt
+        if self.repath_timer < REPATH_INTERVAL:
+            return
 
+        self.repath_timer = 0.0
+        self.repath_attempts += 1
+
+        self._build_path(world)
+
+        if not self.path:
+            if self.repath_attempts >= REPATH_MAX_ATTEMPTS:
+                # Сдаёмся — окончательно стоим
+                self.goal_tile = None
+
+    # --- Отрисовка ---
 
     def draw(self, surface, camera):
         sx, sy = camera.world_to_screen(self.x, self.y)
@@ -99,74 +158,18 @@ class Unit:
         pygame.draw.circle(surface, (20, 30, 50), (sx, sy), self.radius, 2)
 
         if self.selected:
-            pygame.draw.circle(surface, (255, 230, 80), (sx, sy), self.radius + 5, 3)
+            pygame.draw.circle(
+                surface, (255, 230, 80),
+                (sx, sy), self.radius + UNIT_RADIUS_SELECT, 3
+            )
 
-        if self.target_x is not None:
-            tx, ty = camera.world_to_screen(self.target_x, self.target_y)
-            tx, ty = int(tx), int(ty)
+        # Маркер цели — центр конечной клетки
+        if self.goal_tile is not None:
+            gx, gy = self._tile_center(*self.goal_tile)
+            gx, gy = camera.world_to_screen(gx, gy)
+            gx, gy = int(gx), int(gy)
             size = 8
             pygame.draw.line(surface, (255, 230, 80),
-                             (tx - size, ty), (tx + size, ty), 2)
+                             (gx - size, gy), (gx + size, gy), 2)
             pygame.draw.line(surface, (255, 230, 80),
-                             (tx, ty - size), (tx, ty + size), 2)
-
-def resolve_unit_collisions(units):
-    """
-    Раздвигает пересекающихся юнитов.
-    Двигающиеся юниты уступают стоящим: стоящий остаётся на месте,
-    движущийся берёт на себя полный сдвиг.
-    Если оба движутся — расталкиваются поровну.
-    """
-    n = len(units)
-    for i in range(n):
-        a = units[i]
-        for j in range(i + 1, n):
-            b = units[j]
-
-            dx = b.x - a.x
-            dy = b.y - a.y
-            dist_sq = dx * dx + dy * dy
-            min_dist = a.radius + b.radius
-
-            # Не пересекаются — пропускаем
-            if dist_sq >= min_dist * min_dist:
-                continue
-
-            dist = dist_sq ** 0.5
-
-            # Случай «ровно в одной точке» — раздвигаем в случайном направлении
-            if dist < 0.001:
-                angle = random.random() * 6.28318
-                dx = math.cos(angle)
-                dy = math.sin(angle)
-                dist = 0.001
-
-            nx = dx / dist
-            ny = dy / dist
-
-            overlap = min_dist - dist
-
-            # Определяем, кто движется (у кого есть цель)
-            a_moving = a.target_x is not None
-            b_moving = b.target_x is not None
-
-            if a_moving and b_moving:
-                # Оба движутся — сдвиг пополам
-                push_a = overlap / 2.0
-                push_b = overlap / 2.0
-            elif a_moving and not b_moving:
-                # Движется только A — он и уступает полностью
-                push_a = overlap
-                push_b = 0.0
-            elif b_moving and not a_moving:
-                # Движется только B — он и уступает полностью
-                push_a = 0.0
-                push_b = overlap
-            else:
-                # Оба стоят — не трогаем (не должны пересекаться, но на всякий случай)
-                continue
-
-            a.x -= nx * push_a
-            a.y -= ny * push_a
-            b.x += nx * push_b
-            b.y += ny * push_b
+                             (gx, gy - size), (gx, gy + size), 2)
