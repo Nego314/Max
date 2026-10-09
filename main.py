@@ -6,6 +6,7 @@ from settings import (
     FPS, COLOR_BG, COLOR_TEXT,
     TILE_SIZE, FORMATION_SEARCH_RADIUS, SCREEN_MODE,
 )
+from settings import SELECT_RECT_THICKNESS
 from tilemap import TileMap
 from camera import Camera
 from unit import Unit
@@ -27,8 +28,8 @@ elif SCREEN_MODE == "window":
 
 pygame.display.set_caption("MyRTS — прототип")
 clock = pygame.time.Clock()
-font = pygame.font.SysFont("consolas", 20)
-
+from settings import DEBUG_FONT_SIZE
+font = pygame.font.SysFont("consolas", DEBUG_FONT_SIZE)
 
 def screen_to_tile(camera, mx, my):
     """Экранные пиксели → координаты клетки."""
@@ -224,7 +225,7 @@ def main():
             x2, y2 = drag_end
             rx, ry = min(x1, x2), min(y1, y2)
             rw, rh = abs(x2 - x1), abs(y2 - y1)
-            pygame.draw.rect(screen, (255, 230, 80), (rx, ry, rw, rh), 1)
+            pygame.draw.rect(screen, (255, 230, 80), (rx, ry, rw, rh), SELECT_RECT_THICKNESS)
 
         # Debug-инфа
         selected_count = sum(1 for u in world.units

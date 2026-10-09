@@ -1,17 +1,26 @@
+# =============================================================
+#                      НАСТРОЙКИ ИГРЫ
+# =============================================================
+# Всё, что зависит от размера тайла, задаётся через TILE_SIZE.
+# Меняешь TILE_SIZE — всё остальное пересчитывается автоматически.
+# =============================================================
+
+# --- Базовая единица ---
+TILE_SIZE = 32
+
 # --- Экран ---
-SCREEN_WIDTH = 1920      # «логическое» разрешение игры
+SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 1080
 FPS = 60
 
-# Режим экрана:
-#   "window"     — обычное окно
-#   "fullscreen" — полноэкранный безрамочный со масштабированием
+# Режим окна:
+#   "window"     — обычное окно с рамкой
+#   "fullscreen" — безрамочный фуллскрин с масштабированием
 SCREEN_MODE = "fullscreen"
 
-# --- Тайлы ---
-TILE_SIZE = 64
-MAP_WIDTH = 40
-MAP_HEIGHT = 25
+# --- Карта ---
+MAP_WIDTH = 5000
+MAP_HEIGHT = 5000
 
 # --- Цвета ---
 COLOR_BG = (20, 20, 25)
@@ -40,24 +49,33 @@ WALKABLE_TILES = {
 SHOW_GRID = True
 
 # --- Камера ---
-CAMERA_SPEED_KEYS = 700
-CAMERA_SPEED_EDGE = 900
-CAMERA_EDGE_MARGIN = 80
+CAMERA_SPEED_KEYS_FACTOR = 11.0     # × TILE_SIZE, пикс/сек (клавиатура)
+CAMERA_SPEED_EDGE_FACTOR = 14.0     # × TILE_SIZE, пикс/сек (у края экрана)
+CAMERA_SPEED_KEYS = CAMERA_SPEED_KEYS_FACTOR * TILE_SIZE
+CAMERA_SPEED_EDGE = CAMERA_SPEED_EDGE_FACTOR * TILE_SIZE
+CAMERA_EDGE_MARGIN = 80             # пикселей, не зависит от TILE_SIZE
 
-# --- Юниты (все параметры тут) ---
-UNIT_RADIUS = 18           # радиус круга
-UNIT_SPEED = 180.0         # пикселей в секунду
+# --- Юниты (в долях от TILE_SIZE) ---
+UNIT_RADIUS_FACTOR = 0.28       # радиус юнита / TILE_SIZE
+UNIT_SPEED_FACTOR = 2.8         # скорость юнита × TILE_SIZE (пикс/сек)
+UNIT_SELECT_FACTOR = 0.078      # доп. радиус кольца выделения / TILE_SIZE
+
+UNIT_RADIUS = max(2, int(UNIT_RADIUS_FACTOR * TILE_SIZE))
+UNIT_SPEED = UNIT_SPEED_FACTOR * TILE_SIZE
+UNIT_RADIUS_SELECT = max(1, int(UNIT_SELECT_FACTOR * TILE_SIZE))
+
+# Цвета команд
 UNIT_COLOR_PLAYER = (80, 160, 255)
 UNIT_COLOR_ENEMY = (220, 70, 70)
-UNIT_RADIUS_SELECT = 5     # на сколько радиус выделения больше юнита
 
-# --- Игровые константы ---
-# Радиус поиска свободной клетки для формации (в клетках, 3 = 3x3)
-FORMATION_SEARCH_RADIUS = 3
+# --- Формации ---
+FORMATION_SEARCH_RADIUS = 3     # радиус поиска свободной клетки (в клетках)
+FORMATION_SPACING = 1           # шаг формации (в клетках)
 
-# Разброс формации: минимальное расстояние между юнитами в формации (в клетках)
-FORMATION_SPACING = 1
+# --- Перестроение маршрута ---
+REPATH_INTERVAL = 0.5           # секунд между попытками
+REPATH_MAX_ATTEMPTS = 10        # после скольких попыток сдаться
 
-# Тайминг перестроения маршрута при блокировке (в секундах)
-REPATH_INTERVAL = 0.5
-REPATH_MAX_ATTEMPTS = 10
+# --- UI ---
+SELECT_RECT_THICKNESS = max(1, TILE_SIZE // 16)   # толщина рамки выделения
+DEBUG_FONT_SIZE = 16                               # шрифт debug-строки
