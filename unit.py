@@ -163,7 +163,8 @@ class Unit:
                 self.goal_tile = None
             return
 
-        # Двигаемся к центру следующей клетки
+        # Двигаемся к центру следующей клет
+        # ки
         step = self.speed * dt
         if step > dist:
             step = dist
