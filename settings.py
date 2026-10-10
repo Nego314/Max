@@ -97,7 +97,6 @@ RESOURCES = [
 
     {"name": "Железная руда", "value": 200, "unit": "кг", "icon_color": (150, 100, 80)},
     {"name": "Медная руда",   "value": 0,   "unit": "кг", "icon_color": (200, 120, 60)},
-    {"name": "Уголь",         "value": 0,   "unit": "кг", "icon_color": (60, 60, 60)},
 
     {"name": "Сталь",    "value": 0, "unit": "кг", "icon_color": (160, 160, 180)},
     {"name": "Алюминий", "value": 0, "unit": "кг", "icon_color": (200, 200, 200)},

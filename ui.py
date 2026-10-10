@@ -8,7 +8,7 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     UI_PANEL_WIDTH, UI_PANEL_COLOR, UI_BORDER_COLOR,
     UI_TEXT_COLOR, UI_HEADER_COLOR, UI_FONT_SIZE,
-    TILE_SIZE,   # ← добавь
+    TILE_SIZE, RESOURCES,   # ← добавили RESOURCES
 )
 
 
@@ -62,18 +62,58 @@ class UI:
             (self.right_panel.left, SCREEN_HEIGHT), 1
         )
 
-        # Временные заголовки (потом заменим)
+        # Временные заголовки
         text = self.font.render("СВОЙСТВА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.left_panel.x + 12, 12))
 
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
 
-        text = self.font.render("РЕСУРСЫ", True, UI_HEADER_COLOR)
-        self.screen.blit(text, (self.right_panel.x + 12, 320))
+        # Блок ресурсов
+        self.draw_resources()
 
-        # Блок координат курсора — внизу правой панели
+        # Блок координат — внизу
         self.draw_cursor_coords(camera, mouse_pos)
+
+    def draw_resources(self):
+        """Рисует блок ресурсов в правой панели."""
+        # Геометрия блока
+        block_w = UI_PANEL_WIDTH - 20
+        block_x = self.right_panel.x + 10
+        block_y = 320
+        block_h = SCREEN_HEIGHT - block_y - 80   # до блока координат
+
+        block_rect = pygame.Rect(block_x, block_y, block_w, block_h)
+        pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
+        pygame.draw.rect(self.screen, UI_BORDER_COLOR, block_rect, 1)
+
+        # Заголовок
+        header = self.font.render("РЕСУРСЫ", True, UI_HEADER_COLOR)
+        self.screen.blit(header, (block_x + 10, block_y + 8))
+
+        # Строки ресурсов
+        row_h = 24
+        y = block_y + 34
+        icon_size = 12
+
+        for res in RESOURCES:
+            # Проверка: влезет ли строка
+            if y + row_h > block_rect.bottom - 4:
+                break  # обрезаем, если не влезло
+
+            # Иконка — цветной квадрат
+            icon_rect = pygame.Rect(block_x + 10, y + 4, icon_size, icon_size)
+            pygame.draw.rect(self.screen, res["icon_color"], icon_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), icon_rect, 1)
+
+            # Текст: "Имя: значение единица"
+            unit = res.get("unit", "")
+            value = res["value"]
+            text_str = f"{res['name']}: {value} {unit}".rstrip()
+            text = self.font.render(text_str, True, UI_TEXT_COLOR)
+            self.screen.blit(text, (block_x + 10 + icon_size + 8, y + 2))
+
+            y += row_h
 
     def draw_cursor_coords(self, camera, mouse_pos):
         """Рисует блок с координатами клетки под курсором."""
