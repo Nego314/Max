@@ -5,9 +5,8 @@ import pathfinding
 from settings import (
     TILE_SIZE, UNIT_RADIUS, UNIT_SPEED,
     UNIT_COLOR_PLAYER, UNIT_COLOR_ENEMY, UNIT_RADIUS_SELECT,
-    REPATH_INTERVAL, REPATH_MAX_ATTEMPTS,
+    REPATH_INTERVAL, REPATH_MAX_ATTEMPTS, SELECT_CIRCLE_THICKNESS,
 )
-
 
 class Unit:
     def __init__(self, tile_x, tile_y, team="player"):
@@ -203,7 +202,7 @@ class Unit:
         if self.selected:
             pygame.draw.circle(
                 surface, (255, 230, 80),
-                (sx, sy), self.radius + UNIT_RADIUS_SELECT, 3
+                (sx, sy), self.radius + UNIT_RADIUS_SELECT, SELECT_CIRCLE_THICKNESS
             )
 
         # Маркер цели — центр конечной клетки

@@ -9,8 +9,8 @@
 TILE_SIZE = 32
 
 # --- Экран ---
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1080
+SCREEN_WIDTH = 3840/2
+SCREEN_HEIGHT = 2160/2
 FPS = 60
 
 # Режим окна:
@@ -46,7 +46,7 @@ WALKABLE_TILES = {
     TILE_ROCK:  False,
 }
 
-SHOW_GRID = True
+SHOW_GRID = False
 
 # --- Камера ---
 CAMERA_SPEED_KEYS_FACTOR = 11.0     # × TILE_SIZE, пикс/сек (клавиатура)
@@ -77,5 +77,39 @@ REPATH_INTERVAL = 0.5           # секунд между попытками
 REPATH_MAX_ATTEMPTS = 10        # после скольких попыток сдаться
 
 # --- UI ---
-SELECT_RECT_THICKNESS = max(1, TILE_SIZE // 16)   # толщина рамки выделения
-DEBUG_FONT_SIZE = 16                               # шрифт debug-строки
+UI_PANEL_WIDTH = 300                            # ширина каждой панели (левой и правой)
+UI_PANEL_COLOR = (25, 25, 35)                   # фон панелей
+UI_BORDER_COLOR = (60, 60, 80)                  # рамки блоков
+UI_TEXT_COLOR = (230, 230, 230)                 # обычный текст
+UI_HEADER_COLOR = (255, 255, 255)               # заголовки
+UI_FONT_SIZE = 16                               # шрифт UI
+
+SELECT_RECT_THICKNESS = max(1, TILE_SIZE // 16) # толщина рамки выделения
+SELECT_CIRCLE_THICKNESS = 1                     # толщина кольца выделения юнита
+DEBUG_FONT_SIZE = 16                            # шрифт debug-строки
+
+# --- Ресурсы (значения захардкожены, потом подключим экономику) ---
+RESOURCES = [
+    {"name": "Еда",       "value": 50,  "unit": "",     "icon_color": (200, 180, 100)},
+    {"name": "Вода",      "value": 30,  "unit": "л",    "icon_color": (100, 180, 220)},
+    {"name": "Энергия",   "value": 100, "unit": "кВт",  "icon_color": (255, 220, 100)},
+    {"name": "Ёмкость аккумуляторов", "value": 0, "unit": "кВт·ч", "icon_color": (150, 200, 150)},
+
+    {"name": "Железная руда", "value": 200, "unit": "кг", "icon_color": (150, 100, 80)},
+    {"name": "Медная руда",   "value": 0,   "unit": "кг", "icon_color": (200, 120, 60)},
+    {"name": "Уголь",         "value": 0,   "unit": "кг", "icon_color": (60, 60, 60)},
+
+    {"name": "Сталь",    "value": 0, "unit": "кг", "icon_color": (160, 160, 180)},
+    {"name": "Алюминий", "value": 0, "unit": "кг", "icon_color": (200, 200, 200)},
+]
+
+# --- Свойства юнита (показ в левой панели) ---
+UNIT_STATS = [
+    {"key": "hp",        "name": "Жизнь",             "value": 100, "unit": ""},
+    {"key": "armor",     "name": "Броня",             "value": 5,   "unit": ""},
+    {"key": "attack",    "name": "Атака",             "value": 10,  "unit": ""},
+    {"key": "vision",    "name": "Дальность обзора",  "value": 8,   "unit": "кл."},
+    {"key": "atk_range", "name": "Дальность атаки",   "value": 5,   "unit": "кл."},
+    {"key": "shots",     "name": "Кол-во выстрелов",  "value": 1,   "unit": ""},
+    {"key": "speed",     "name": "Скорость хода",     "value": 3,   "unit": "кл./с"},
+]

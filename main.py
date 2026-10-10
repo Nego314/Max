@@ -5,7 +5,9 @@ import settings
 from settings import (
     FPS, COLOR_BG, COLOR_TEXT,
     TILE_SIZE, FORMATION_SEARCH_RADIUS, SCREEN_MODE,
+    UI_PANEL_WIDTH, SELECT_RECT_THICKNESS, DEBUG_FONT_SIZE,
 )
+from ui import UI
 from settings import SELECT_RECT_THICKNESS
 from tilemap import TileMap
 from camera import Camera
@@ -28,7 +30,6 @@ elif SCREEN_MODE == "window":
 
 pygame.display.set_caption("MyRTS — прототип")
 clock = pygame.time.Clock()
-from settings import DEBUG_FONT_SIZE
 font = pygame.font.SysFont("consolas", DEBUG_FONT_SIZE)
 
 def screen_to_tile(camera, mx, my):
@@ -112,6 +113,7 @@ def main():
     tilemap = TileMap()
     camera = Camera()
     world = create_world(tilemap)
+    ui = UI(screen)
 
     dragging = False
     drag_start = (0, 0)
@@ -131,6 +133,8 @@ def main():
                     running = False
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if ui.is_over_ui(event.pos):
+                    continue  # клик по панели — игнорируем
                 mx, my = event.pos
                 wx, wy = camera.screen_to_world(mx, my)
 
@@ -182,6 +186,8 @@ def main():
                     drag_end = event.pos
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+                if ui.is_over_ui(event.pos):
+                    continue
                 mx, my = event.pos
                 click_tile = screen_to_tile(camera, mx, my)
 
@@ -213,21 +219,29 @@ def main():
         # --- Отрисовка ---
         screen.fill(COLOR_BG)
 
+        # Рисуем тайлы только в области viewport
+        screen.set_clip(ui.viewport)
         cam_x, cam_y = camera.offset
         tilemap.draw(screen, cam_x, cam_y)
-
         for u in world.units:
             u.draw(screen, camera)
+        screen.set_clip(None)
 
-        # Рамка выделения
+        # Рамка выделения — рисуем поверх поля
         if dragging:
             x1, y1 = drag_start
             x2, y2 = drag_end
             rx, ry = min(x1, x2), min(y1, y2)
             rw, rh = abs(x2 - x1), abs(y2 - y1)
-            pygame.draw.rect(screen, (255, 230, 80), (rx, ry, rw, rh), SELECT_RECT_THICKNESS)
+            pygame.draw.rect(
+                screen, (255, 230, 80),
+                (rx, ry, rw, rh), SELECT_RECT_THICKNESS
+            )
 
-        # Debug-инфа
+        # UI поверх всего
+        ui.draw()
+
+        # Debug
         selected_count = sum(1 for u in world.units
                              if u.selected and u.team == "player")
         debug = font.render(
@@ -235,13 +249,13 @@ def main():
             f"Units: {len(world.units)}",
             True, COLOR_TEXT,
         )
-        screen.blit(debug, (10, 10))
+        screen.blit(debug, (ui.viewport.x + 10, 10))
 
         hint = font.render(
-            "LMB - select / drag, Shift+LMB - add, RMB - move, ESC - exit",
+            "LMB - select, RMB - move, ESC - exit",
             True, COLOR_TEXT,
         )
-        screen.blit(hint, (10, 35))
+        screen.blit(hint, (ui.viewport.x + 10, 35))
 
         pygame.display.flip()
 

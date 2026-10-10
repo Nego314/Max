@@ -16,24 +16,35 @@ class TileMap:
         self._generate()
 
     def _generate(self):
-        """Простая генерация: пятна воды, камня, песка."""
-        # Вода — пятно в центре-слева
-        for y in range(8, 15):
-            for x in range(5, 13):
+        """Пропорциональная генерация: пятна в процентах от размера карты."""
+        # Вода — пятно примерно 20% × 15% в левом-верхнем углу
+        w_start_x = int(self.width * 0.10)
+        w_end_x = int(self.width * 0.30)
+        w_start_y = int(self.height * 0.30)
+        w_end_y = int(self.height * 0.60)
+
+        for y in range(w_start_y, w_end_y):
+            for x in range(w_start_x, w_end_x):
                 if random.random() < 0.85:
                     self.tiles[y][x] = TILE_WATER
 
-        # Камень — пятно справа-сверху
-        for y in range(3, 9):
-            for x in range(25, 33):
+        # Камень — пятно в правом-верхнем
+        r_start_x = int(self.width * 0.60)
+        r_end_x = int(self.width * 0.80)
+        r_start_y = int(self.height * 0.10)
+        r_end_y = int(self.height * 0.30)
+
+        for y in range(r_start_y, r_end_y):
+            for x in range(r_start_x, r_end_x):
                 if random.random() < 0.75:
                     self.tiles[y][x] = TILE_ROCK
 
-        # Песок — полоса вдоль воды
-        for y in range(7, 16):
-            for x in range(4, 14):
-                if self.tiles[y][x] == TILE_GRASS and random.random() < 0.5:
-                    self.tiles[y][x] = TILE_SAND
+        # Песок — вокруг воды
+        for y in range(w_start_y - 1, w_end_y + 1):
+            for x in range(w_start_x - 1, w_end_x + 1):
+                if 0 <= x < self.width and 0 <= y < self.height:
+                    if self.tiles[y][x] == TILE_GRASS and random.random() < 0.5:
+                        self.tiles[y][x] = TILE_SAND
 
     def draw(self, surface, camera_x=0, camera_y=0):
         """Рисует только те тайлы, что попадают в экран (culling)."""
