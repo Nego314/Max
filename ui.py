@@ -8,6 +8,7 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     UI_PANEL_WIDTH, UI_PANEL_COLOR, UI_BORDER_COLOR,
     UI_TEXT_COLOR, UI_HEADER_COLOR, UI_FONT_SIZE,
+    TILE_SIZE,   # ← добавь
 )
 
 
@@ -44,7 +45,7 @@ class UI:
 
     # --- Отрисовка ---
 
-    def draw(self):
+    def draw(self, camera, mouse_pos):
         # Левая панель
         pygame.draw.rect(self.screen, UI_PANEL_COLOR, self.left_panel)
         pygame.draw.line(
@@ -61,21 +62,43 @@ class UI:
             (self.right_panel.left, SCREEN_HEIGHT), 1
         )
 
-        # Подпись-заглушка (чтобы видеть, что каркас работает)
-        self._draw_placeholder_text()
-
-    def _draw_placeholder_text(self):
-        """Временный текст — потом заменим на реальные блоки."""
-        # Левая панель
+        # Временные заголовки (потом заменим)
         text = self.font.render("СВОЙСТВА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.left_panel.x + 12, 12))
 
-        # Правая панель
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
 
         text = self.font.render("РЕСУРСЫ", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 320))
 
-        text = self.font.render("КУРСОР", True, UI_HEADER_COLOR)
-        self.screen.blit(text, (self.right_panel.x + 12, SCREEN_HEIGHT - 80))
+        # Блок координат курсора — внизу правой панели
+        self.draw_cursor_coords(camera, mouse_pos)
+
+    def draw_cursor_coords(self, camera, mouse_pos):
+        """Рисует блок с координатами клетки под курсором."""
+        # Геометрия блока
+        block_w = UI_PANEL_WIDTH - 20
+        block_h = 60
+        block_x = self.right_panel.x + 10
+        block_y = SCREEN_HEIGHT - block_h - 10
+
+        block_rect = pygame.Rect(block_x, block_y, block_w, block_h)
+        pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
+        pygame.draw.rect(self.screen, UI_BORDER_COLOR, block_rect, 1)
+
+        # Заголовок
+        header = self.font.render("КУРСОР", True, UI_HEADER_COLOR)
+        self.screen.blit(header, (block_x + 10, block_y + 8))
+
+        # Координаты
+        if self.is_over_viewport(mouse_pos):
+            wx, wy = camera.screen_to_world(*mouse_pos)
+            tx = int(wx // TILE_SIZE)
+            ty = int(wy // TILE_SIZE)
+            text_str = f"X: {tx}   Y: {ty}"
+        else:
+            text_str = "X: ---   Y: ---"
+
+        text = self.font.render(text_str, True, UI_TEXT_COLOR)
+        self.screen.blit(text, (block_x + 10, block_y + 30))

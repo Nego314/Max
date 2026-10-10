@@ -239,7 +239,9 @@ def main():
             )
 
         # UI поверх всего
-        ui.draw()
+        mouse_pos = pygame.mouse.get_pos()
+        ui.draw(camera, pygame.mouse.get_pos())
+        ui.draw(camera, mouse_pos)
 
         # Debug
         selected_count = sum(1 for u in world.units
