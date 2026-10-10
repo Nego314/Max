@@ -8,8 +8,10 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     UI_PANEL_WIDTH, UI_PANEL_COLOR, UI_BORDER_COLOR,
     UI_TEXT_COLOR, UI_HEADER_COLOR, UI_FONT_SIZE,
-    TILE_SIZE, RESOURCES,   # ← добавили RESOURCES
+    TILE_SIZE, RESOURCES, COLONY_POPULATION,   # ← добавили
 )
+
+
 
 
 class UI:
@@ -69,44 +71,65 @@ class UI:
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
 
-        # Блок ресурсов
+        # Панель населения
+        self.draw_population()
+
+        # Панель ресурсов
         self.draw_resources()
 
-        # Блок координат — внизу
+        # Блок координат
         self.draw_cursor_coords(camera, mouse_pos)
 
-    def draw_resources(self):
-        """Рисует блок ресурсов в правой панели."""
-        # Геометрия блока
+    def draw_population(self):
+        """Рисует компактную панель населения."""
         block_w = UI_PANEL_WIDTH - 20
+        block_h = 60
         block_x = self.right_panel.x + 10
-        block_y = 320
-        block_h = SCREEN_HEIGHT - block_y - 80   # до блока координат
+        block_y = 320   # над ресурсами
 
         block_rect = pygame.Rect(block_x, block_y, block_w, block_h)
         pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
         pygame.draw.rect(self.screen, UI_BORDER_COLOR, block_rect, 1)
 
         # Заголовок
+        header = self.font.render("НАСЕЛЕНИЕ", True, UI_HEADER_COLOR)
+        self.screen.blit(header, (block_x + 10, block_y + 8))
+
+        # Компактная строка: "Г:1  И:0  Ш:0"
+        parts = []
+        for pop in COLONY_POPULATION:
+            parts.append(f"{pop['letter']}:{pop['count']}")
+        text_str = "   ".join(parts)
+
+        text = self.font.render(text_str, True, UI_TEXT_COLOR)
+        self.screen.blit(text, (block_x + 10, block_y + 32))
+
+    def draw_resources(self):
+        """Рисует блок ресурсов в правой панели (под населением)."""
+        block_w = UI_PANEL_WIDTH - 20
+        block_x = self.right_panel.x + 10
+        block_y = 390                # ← было 320, сдвигаем вниз на 70
+        block_h = SCREEN_HEIGHT - block_y - 80
+
+        block_rect = pygame.Rect(block_x, block_y, block_w, block_h)
+        pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
+        pygame.draw.rect(self.screen, UI_BORDER_COLOR, block_rect, 1)
+
         header = self.font.render("РЕСУРСЫ", True, UI_HEADER_COLOR)
         self.screen.blit(header, (block_x + 10, block_y + 8))
 
-        # Строки ресурсов
         row_h = 24
         y = block_y + 34
         icon_size = 12
 
         for res in RESOURCES:
-            # Проверка: влезет ли строка
             if y + row_h > block_rect.bottom - 4:
-                break  # обрезаем, если не влезло
+                break
 
-            # Иконка — цветной квадрат
             icon_rect = pygame.Rect(block_x + 10, y + 4, icon_size, icon_size)
             pygame.draw.rect(self.screen, res["icon_color"], icon_rect)
             pygame.draw.rect(self.screen, (0, 0, 0), icon_rect, 1)
 
-            # Текст: "Имя: значение единица"
             unit = res.get("unit", "")
             value = res["value"]
             text_str = f"{res['name']}: {value} {unit}".rstrip()
