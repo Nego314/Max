@@ -113,7 +113,7 @@ def main():
     tilemap = TileMap()
     camera = Camera()
     world = create_world(tilemap)
-    ui = UI(screen)
+    ui = UI(screen, tilemap)
 
     dragging = False
     drag_start = (0, 0)
@@ -133,6 +133,12 @@ def main():
                     running = False
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Клик по миникарте — телепорт камеры
+                if ui.minimap.contains_point(event.pos):
+                    wx, wy = ui.minimap.screen_to_world(*event.pos)
+                    camera.move_to(wx, wy)
+                    continue
+
                 if ui.is_over_ui(event.pos):
                     continue  # клик по панели — игнорируем
                 mx, my = event.pos

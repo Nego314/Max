@@ -3,36 +3,37 @@
 с миникартой, ресурсами и координатами курсора.
 """
 import pygame
-
+from minimap import Minimap   # ← добавили
 from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     UI_PANEL_WIDTH, UI_PANEL_COLOR, UI_BORDER_COLOR,
     UI_TEXT_COLOR, UI_HEADER_COLOR, UI_FONT_SIZE,
     TILE_SIZE, RESOURCES, COLONY_POPULATION,
-    UNIT_STATS, UI_STATS_ROW_HEIGHT, UI_PORTRAIT_HEIGHT,   # ← добавили
+    UNIT_STATS, UI_STATS_ROW_HEIGHT, UI_PORTRAIT_HEIGHT,
+    MINIMAP_SIZE, MINIMAP_MARGIN,   # ← добавили
 )
 
-
 class UI:
-    def __init__(self, screen):
+    def __init__(self, screen, tilemap):
         self.screen = screen
 
         # Геометрия панелей
-        self.left_panel = pygame.Rect(
-            0, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT
-        )
+        self.left_panel = pygame.Rect(0, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT)
         self.right_panel = pygame.Rect(
             SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT
         )
-
-        # Игровое поле — область между панелями
         self.viewport = pygame.Rect(
             UI_PANEL_WIDTH, 0,
             SCREEN_WIDTH - 2 * UI_PANEL_WIDTH, SCREEN_HEIGHT,
         )
 
-        # Шрифты
         self.font = pygame.font.SysFont("consolas", UI_FONT_SIZE)
+
+        # Миникарта
+        self.minimap = Minimap(tilemap)
+        mm_x = self.right_panel.x + MINIMAP_MARGIN
+        mm_y = 40   # под заголовком "МИНИКАРТА"
+        self.minimap.set_position(mm_x, mm_y)
 
     # --- Геометрия ---
 
@@ -68,8 +69,10 @@ class UI:
         #self.screen.blit(text, (self.left_panel.x + 12, 12))
         self.draw_properties(world)
 
+        # Заголовок + миникарта
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
+        self.minimap.draw(self.screen, world, camera)
 
         # Панель населения
         self.draw_population()
@@ -85,7 +88,7 @@ class UI:
         block_w = UI_PANEL_WIDTH - 20
         block_h = 60
         block_x = self.right_panel.x + 10
-        block_y = 320   # над ресурсами
+        block_y = 40 + MINIMAP_SIZE + 15   # над ресурсами
 
         block_rect = pygame.Rect(block_x, block_y, block_w, block_h)
         pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
@@ -108,7 +111,7 @@ class UI:
         """Рисует блок ресурсов в правой панели (под населением)."""
         block_w = UI_PANEL_WIDTH - 20
         block_x = self.right_panel.x + 10
-        block_y = 390                # ← было 320, сдвигаем вниз на 70
+        block_y = 40 + MINIMAP_SIZE + 15 + 60 + 10                # ← было 320, сдвигаем вниз на 70
         block_h = SCREEN_HEIGHT - block_y - 80
 
         block_rect = pygame.Rect(block_x, block_y, block_w, block_h)

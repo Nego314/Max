@@ -174,3 +174,11 @@ UNIT_TYPES = {
         "speed": 3.5,
     },
 }
+
+# --- UI: миникарта ---
+MINIMAP_SIZE = 280           # размер миникарты (квадрат), пикс
+MINIMAP_MARGIN = 10          # отступ от краёв панели, пикс
+MINIMAP_CAMERA_COLOR = (255, 230, 80)   # цвет рамки камеры
+MINIMAP_ALLY_COLOR = (80, 160, 255)     # цвет своих юнитов
+MINIMAP_ENEMY_COLOR = (220, 70, 70)     # цвет врагов
+
