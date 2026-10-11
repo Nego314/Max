@@ -88,6 +88,10 @@ SELECT_RECT_THICKNESS = max(1, TILE_SIZE // 16) # толщина рамки вы
 SELECT_CIRCLE_THICKNESS = 1                     # толщина кольца выделения юнита
 DEBUG_FONT_SIZE = 16                            # шрифт debug-строки
 
+# --- UI: панель свойств ---
+UI_STATS_ROW_HEIGHT = 24         # высота строки свойства
+UI_PORTRAIT_HEIGHT = 240         # высота блока портрета (внизу левой панели)
+
 # --- Ресурсы (значения захардкожены, потом подключим экономику) ---
 RESOURCES = [
     # --- Жизнеобеспечение ---
@@ -129,3 +133,44 @@ COLONY_POPULATION = [
     {"letter": "И", "name": "Инженер",  "count": 0},
     {"letter": "Ш", "name": "Шахтёр",   "count": 0},
 ]
+
+# --- Типы юнитов ---
+# Для каждого типа: буква (для портрета), имя, стартовые характеристики
+UNIT_TYPES = {
+    "geologist": {
+        "letter": "Г",
+        "name": "Геолог",
+        "color": (180, 220, 180),   # цвет команды задаётся отдельно
+        "hp": 80,
+        "armor": 2,
+        "attack": 3,
+        "vision": 6,
+        "atk_range": 2,
+        "shots": 1,
+        "speed": 2.5,               # кл./сек
+    },
+    "engineer": {
+        "letter": "И",
+        "name": "Инженер",
+        "color": (180, 180, 220),
+        "hp": 100,
+        "armor": 5,
+        "attack": 5,
+        "vision": 5,
+        "atk_range": 3,
+        "shots": 1,
+        "speed": 3.0,
+    },
+    "soldier": {
+        "letter": "С",
+        "name": "Солдат",
+        "color": (220, 180, 180),
+        "hp": 120,
+        "armor": 10,
+        "attack": 15,
+        "vision": 8,
+        "atk_range": 6,
+        "shots": 2,
+        "speed": 3.5,
+    },
+}

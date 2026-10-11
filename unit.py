@@ -6,36 +6,53 @@ from settings import (
     TILE_SIZE, UNIT_RADIUS, UNIT_SPEED,
     UNIT_COLOR_PLAYER, UNIT_COLOR_ENEMY, UNIT_RADIUS_SELECT,
     REPATH_INTERVAL, REPATH_MAX_ATTEMPTS, SELECT_CIRCLE_THICKNESS,
+    UNIT_TYPES,
 )
 
+
 class Unit:
-    def __init__(self, tile_x, tile_y, team="player"):
+    def __init__(self, tile_x, tile_y, team="player", unit_type="geologist"):
         self.team = team
+        self.unit_type = unit_type   # ключ в UNIT_TYPES
+
+        # Загружаем базовые характеристики из шаблона типа
+        tpl = UNIT_TYPES[unit_type]
+        self.letter = tpl["letter"]
+        self.type_name = tpl["name"]
+
+        # Собственные значения характеристик (могут меняться в игре)
+        self.hp = tpl["hp"]
+        self.max_hp = tpl["hp"]
+        self.armor = tpl["armor"]
+        self.attack = tpl["attack"]
+        self.vision = tpl["vision"]
+        self.atk_range = tpl["atk_range"]
+        self.shots = tpl["shots"]
+        # Скорость: хранится в кл./с, переводится в пикс./с
+        self.speed_tiles = tpl["speed"]
+        self.speed = self.speed_tiles * TILE_SIZE
 
         # Сеточная позиция (текущая клетка)
         self.tile_x = tile_x
         self.tile_y = tile_y
-
-        # Пиксельные координаты = центр клетки
         self.x, self.y = self._tile_center(tile_x, tile_y)
 
-        # Параметры (из settings)
+        # Параметры для отрисовки
         self.radius = UNIT_RADIUS
-        self.speed = UNIT_SPEED
         self.color = UNIT_COLOR_PLAYER if team == "player" else UNIT_COLOR_ENEMY
 
         self.selected = False
-
-        # Путь: список клеток (tx, ty) БЕЗ текущей
         self.path = []
-        # Целевая клетка (для переприказа и пересчёта)
         self.goal_tile = None
-
-        # Тайминг перестроения
         self.repath_timer = 0.0
         self.repath_attempts = 0
 
-    # --- Вспомогательное ---
+    def get_stat(self, key):
+        """Возвращает значение характеристики по ключу из UNIT_STATS."""
+        # key может быть: hp, armor, attack, vision, atk_range, shots, speed
+        if key == "speed":
+            return self.speed_tiles
+        return getattr(self, key, 0)
 
     @staticmethod
     def _tile_center(tx, ty):
@@ -199,13 +216,21 @@ class Unit:
         pygame.draw.circle(surface, self.color, (sx, sy), self.radius)
         pygame.draw.circle(surface, (20, 30, 50), (sx, sy), self.radius, 2)
 
+        # Буква типа внутри — если радиус позволяет
+        if self.radius >= 8:
+            letter_surf = pygame.font.SysFont("consolas", max(8, self.radius - 2)).render(
+                self.letter, True, (255, 255, 255)
+            )
+            letter_rect = letter_surf.get_rect(center=(sx, sy))
+            surface.blit(letter_surf, letter_rect)
+
         if self.selected:
             pygame.draw.circle(
                 surface, (255, 230, 80),
                 (sx, sy), self.radius + UNIT_RADIUS_SELECT, SELECT_CIRCLE_THICKNESS
             )
 
-        # Маркер цели — центр конечной клетки
+        # Маркер цели
         if self.goal_tile is not None:
             gx, gy = self._tile_center(*self.goal_tile)
             gx, gy = camera.world_to_screen(gx, gy)
@@ -215,3 +240,4 @@ class Unit:
                              (gx - size, gy), (gx + size, gy), 2)
             pygame.draw.line(surface, (255, 230, 80),
                              (gx, gy - size), (gx, gy + size), 2)
+

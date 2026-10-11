@@ -8,10 +8,9 @@ from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     UI_PANEL_WIDTH, UI_PANEL_COLOR, UI_BORDER_COLOR,
     UI_TEXT_COLOR, UI_HEADER_COLOR, UI_FONT_SIZE,
-    TILE_SIZE, RESOURCES, COLONY_POPULATION,   # ← добавили
+    TILE_SIZE, RESOURCES, COLONY_POPULATION,
+    UNIT_STATS, UI_STATS_ROW_HEIGHT, UI_PORTRAIT_HEIGHT,   # ← добавили
 )
-
-
 
 
 class UI:
@@ -47,7 +46,7 @@ class UI:
 
     # --- Отрисовка ---
 
-    def draw(self, camera, mouse_pos):
+    def draw(self, camera, mouse_pos, world):
         # Левая панель
         pygame.draw.rect(self.screen, UI_PANEL_COLOR, self.left_panel)
         pygame.draw.line(
@@ -65,8 +64,9 @@ class UI:
         )
 
         # Временные заголовки
-        text = self.font.render("СВОЙСТВА", True, UI_HEADER_COLOR)
-        self.screen.blit(text, (self.left_panel.x + 12, 12))
+        #text = self.font.render("СВОЙСТВА", True, UI_HEADER_COLOR)
+        #self.screen.blit(text, (self.left_panel.x + 12, 12))
+        self.draw_properties(world)
 
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
@@ -165,3 +165,90 @@ class UI:
 
         text = self.font.render(text_str, True, UI_TEXT_COLOR)
         self.screen.blit(text, (block_x + 10, block_y + 30))
+
+    def draw_properties(self, world):
+        """Левая панель: свойства выделенного юнита или группы + портрет."""
+        panel = self.left_panel
+
+        # --- Заголовок ---
+        header = self.font.render("СВОЙСТВА", True, UI_HEADER_COLOR)
+        self.screen.blit(header, (panel.x + 12, 12))
+
+        # --- Определяем выделение ---
+        selected = [u for u in world.units
+                    if u.selected and u.team == "player"]
+
+        # --- Блок свойств ---
+        stats_y = 45
+        stats_x = panel.x + 12
+        row_h = UI_STATS_ROW_HEIGHT
+
+        if not selected:
+            text = self.font.render("Ничего не выделено", True, UI_TEXT_COLOR)
+            self.screen.blit(text, (stats_x, stats_y))
+        elif len(selected) == 1:
+            u = selected[0]
+
+            # Тип юнита
+            type_text = self.font.render(f"{u.type_name}", True, UI_HEADER_COLOR)
+            self.screen.blit(type_text, (stats_x, stats_y))
+            stats_y += row_h + 6
+
+            # Свойства
+            for stat in UNIT_STATS:
+                value = u.get_stat(stat["key"])
+                unit_str = stat["unit"]
+                line = f"{stat['name']}: {value} {unit_str}".rstrip()
+                text = self.font.render(line, True, UI_TEXT_COLOR)
+                self.screen.blit(text, (stats_x, stats_y))
+                stats_y += row_h
+        else:
+            text = self.font.render(f"Выделено: {len(selected)} юнитов",
+                                    True, UI_HEADER_COLOR)
+            self.screen.blit(text, (stats_x, stats_y))
+
+        # --- Портрет внизу левой панели ---
+        self.draw_portrait(selected)
+
+    def draw_portrait(self, selected):
+        """Рисует блок портрета внизу левой панели."""
+        panel = self.left_panel
+
+        block_h = UI_PORTRAIT_HEIGHT
+        block_y = SCREEN_HEIGHT - block_h
+        block_rect = pygame.Rect(panel.x, block_y, panel.width, block_h)
+
+        # Фон
+        pygame.draw.rect(self.screen, (35, 35, 48), block_rect)
+        pygame.draw.line(self.screen, UI_BORDER_COLOR,
+                         (panel.x, block_y), (panel.x + panel.width, block_y), 1)
+
+        # Заголовок
+        header = self.font.render("ПОРТРЕТ", True, UI_HEADER_COLOR)
+        self.screen.blit(header, (panel.x + 12, block_y + 8))
+
+        # Иконка (круг с буквой)
+        if not selected:
+            return  # ничего не рисуем
+
+        center_x = panel.x + panel.width // 2
+        center_y = block_y + block_h // 2 + 10
+
+        if len(selected) == 1:
+            u = selected[0]
+            self._draw_portrait_icon(center_x, center_y, u.color, u.letter)
+        else:
+            # Группа: кружок + количество
+            self._draw_portrait_icon(center_x, center_y,
+                                     (100, 100, 120), f"{len(selected)}")
+
+    def _draw_portrait_icon(self, cx, cy, color, letter):
+        """Вспомогательный метод: круг с буквой в центре."""
+        radius = 60
+        pygame.draw.circle(self.screen, color, (cx, cy), radius)
+        pygame.draw.circle(self.screen, (20, 30, 50), (cx, cy), radius, 3)
+
+        big_font = pygame.font.SysFont("consolas", 48, bold=True)
+        letter_surf = big_font.render(letter, True, (255, 255, 255))
+        rect = letter_surf.get_rect(center=(cx, cy))
+        self.screen.blit(letter_surf, rect)

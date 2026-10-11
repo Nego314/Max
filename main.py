@@ -45,12 +45,12 @@ def create_world(tilemap):
     # Наши — синие
     player_tiles = [(10, 10), (11, 10), (12, 10), (10, 11), (11, 11)]
     for (tx, ty) in player_tiles:
-        world.add_unit(Unit(tx, ty, team="player"))
+        world.add_unit(Unit(tx, ty, team="player", unit_type="geologist"))
 
     # Враги — красные
     enemy_tiles = [(25, 15), (26, 15), (25, 16)]
     for (tx, ty) in enemy_tiles:
-        world.add_unit(Unit(tx, ty, team="enemy"))
+        world.add_unit(Unit(tx, ty, team="enemy", unit_type="soldier"))
 
     return world
 
@@ -240,8 +240,8 @@ def main():
 
         # UI поверх всего
         mouse_pos = pygame.mouse.get_pos()
-        ui.draw(camera, pygame.mouse.get_pos())
-        ui.draw(camera, mouse_pos)
+        ui.draw(camera, pygame.mouse.get_pos(), world)
+        ui.draw(camera, mouse_pos, world)
 
         # Debug
         selected_count = sum(1 for u in world.units
