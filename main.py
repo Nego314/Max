@@ -13,7 +13,7 @@ from tilemap import TileMap
 from camera import Camera
 from unit import Unit
 from world import World
-
+from fog import Fog
 
 # --- Инициализация Pygame ---
 pygame.init()
@@ -114,6 +114,7 @@ def main():
     camera = Camera()
     world = create_world(tilemap)
     ui = UI(screen, tilemap)
+    fog = Fog(tilemap.width, tilemap.height)
 
     dragging = False
     drag_start = (0, 0)
@@ -231,6 +232,12 @@ def main():
         tilemap.draw(screen, cam_x, cam_y)
         for u in world.units:
             u.draw(screen, camera)
+
+        fog.update(world)
+
+        # Туман поверх карты и юнитов
+        fog.draw(screen, camera)
+
         screen.set_clip(None)
 
         # Рамка выделения — рисуем поверх поля
