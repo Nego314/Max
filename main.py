@@ -221,7 +221,9 @@ def main():
         camera.update(dt, keys, mouse_pos)
 
         for u in world.units:
-            u.update(dt, world)
+            # Врагов рисуем только если их клетка видима
+            if u.team == "player" or fog.is_visible(u.tile_x, u.tile_y):
+                u.update(dt, world)
 
         # --- Отрисовка ---
         screen.fill(COLOR_BG)
@@ -231,7 +233,10 @@ def main():
         cam_x, cam_y = camera.offset
         tilemap.draw(screen, cam_x, cam_y)
         for u in world.units:
-            u.draw(screen, camera)
+            # Свои — рисуем всегда (они и так в своём тумане)
+            # Врага — только если его клетка видима
+            if u.team == "player" or fog.is_visible(u.tile_x, u.tile_y):
+                u.draw(screen, camera)
 
         fog.update(world)
 
@@ -253,8 +258,7 @@ def main():
 
         # UI поверх всего
         mouse_pos = pygame.mouse.get_pos()
-        ui.draw(camera, pygame.mouse.get_pos(), world)
-        ui.draw(camera, mouse_pos, world)
+        ui.draw(camera, pygame.mouse.get_pos(), world, fog)
 
         # Debug
         selected_count = sum(1 for u in world.units

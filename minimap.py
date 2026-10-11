@@ -71,13 +71,17 @@ class Minimap:
 
     # --- Отрисовка ---
 
-    def draw(self, screen, world, camera):
+    def draw(self, screen, world, camera, fog):
         """Рисует миникарту: статичную карту, юнитов, рамку камеры."""
         # Копируем статичную картинку
         screen.blit(self.static_surface, (self.screen_x, self.screen_y))
 
         # Юниты точками
         for u in world.units:
+            # Врагов — только если видимы
+            if u.team != "player" and not fog.is_visible(u.tile_x, u.tile_y):
+                continue
+
             mx = self.screen_x + int(u.tile_x / self.scale_x)
             my = self.screen_y + int(u.tile_y / self.scale_y)
 
@@ -86,7 +90,6 @@ class Minimap:
             else:
                 color = MINIMAP_ENEMY_COLOR
 
-            # 2×2, чтобы точки было видно
             pygame.draw.rect(screen, color, (mx, my, 2, 2))
 
         # Рамка камеры
@@ -126,3 +129,34 @@ class Minimap:
 
     def contains_point(self, mouse_pos):
         return self.screen_rect.collidepoint(mouse_pos)
+
+    def _update_fog_surface(self, fog):
+        """Пересчитывает туман миникарты через numpy."""
+        import numpy as np
+
+        # explored (height, width) → bool
+        # уменьшить до (size, size)
+        # используем reshape + any()
+
+        block_x = self.tilemap.width // self.size  # ~17
+        block_y = self.tilemap.height // self.size
+
+        usable_w = block_x * self.size
+        usable_h = block_y * self.size
+
+        # Режем explored до кратного
+        explored = fog.explored[:usable_h, :usable_w]
+
+        # Решейп: (size, block_y, size, block_x)
+        reshaped = explored.reshape(self.size, block_y, self.size, block_x)
+
+        # «Хоть одна explored-клетка в блоке?»
+        any_explored = reshaped.any(axis=(1, 3))  # (size, size)
+
+        # Создаём маску
+        mask = np.zeros((self.size, self.size, 3), dtype=np.uint8)
+        mask[~any_explored] = (0, 0, 0)  # не исследовано → чёрный
+        # explored → прозрачный (не рисуем)
+
+        # На Surface
+        ...

@@ -47,7 +47,7 @@ class UI:
 
     # --- Отрисовка ---
 
-    def draw(self, camera, mouse_pos, world):
+    def draw(self, camera, mouse_pos, world, fog):
         # Левая панель
         pygame.draw.rect(self.screen, UI_PANEL_COLOR, self.left_panel)
         pygame.draw.line(
@@ -72,7 +72,7 @@ class UI:
         # Заголовок + миникарта
         text = self.font.render("МИНИКАРТА", True, UI_HEADER_COLOR)
         self.screen.blit(text, (self.right_panel.x + 12, 12))
-        self.minimap.draw(self.screen, world, camera)
+        self.minimap.draw(self.screen, world, camera, fog)
 
         # Панель населения
         self.draw_population()
