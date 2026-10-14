@@ -42,9 +42,8 @@ def screen_to_tile(camera, mx, my):
     wx, wy = camera.screen_to_world(mx, my)
     return int(wx // TILE_SIZE), int(wy // TILE_SIZE)
 
-
 def create_world(tilemap):
-    """Создаём мир: ищем базы, ставим здание, спавним юнитов."""
+    """Создаём мир: ищем базы, ставим здания по схеме, спавним юнитов."""
     world = World(tilemap)
 
     base_locations = find_all_base_locations(
@@ -57,32 +56,55 @@ def create_world(tilemap):
 
     for i, (bx, by) in enumerate(base_locations):
         team = "player" if i == 0 else "enemy"
+        _place_base_buildings(world, bx, by, team)
 
-        size = BUILDING_TYPES["habitat"]["size"]
-        half = size // 2
-        bld = Building(bx - half, by - half, building_type="habitat", team=team)
-
-        if not world.can_place_building(bld):
-            print(f"[World] Не могу поставить здание в {bx},{by} для {team}")
-            placed = False
-            for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1)]:
-                bld.tile_x = bx - half + dx
-                bld.tile_y = by - half + dy
-                if world.can_place_building(bld):
-                    placed = True
-                    break
-            if not placed:
-                print(f"[World] Не смог поставить здание для {team}, пропускаю")
-                continue
-
-        world.add_building(bld)
-        print(f"[World] Здание ({team}) поставлено в ({bld.tile_x}, {bld.tile_y})")
-
-        _spawn_units_for_base(world, (bx, by), team, exclude=bld.get_occupied_tiles())
+        _spawn_units_for_base(world, (bx, by), team)
 
     world.base_locations = base_locations
     return world
 
+
+def _place_base_buildings(world, bx, by, team):
+    """Расставляет здания базы по схеме BASE_LAYOUT."""
+    from settings import BASE_LAYOUT
+
+    for (btype, dx, dy) in BASE_LAYOUT:
+        tpl = BUILDING_TYPES[btype]
+        size = tpl["size"]
+
+        # Пробуем поставить в идеальное место
+        bld = Building(bx + dx, by + dy, building_type=btype, team=team)
+
+        if world.can_place_building(bld):
+            world.add_building(bld)
+            continue
+
+        # Пробуем сдвинуть по спирали вокруг идеального места
+        placed = False
+        for shift_r in range(1, 6):
+            for (sx, sy) in _spiral_offsets(shift_r):
+                bld.tile_x = bx + dx + sx
+                bld.tile_y = by + dy + sy
+                if world.can_place_building(bld):
+                    placed = True
+                    break
+            if placed:
+                break
+
+        if placed:
+            world.add_building(bld)
+        else:
+            print(f"[World] Не смог поставить {btype} для {team} в ({bx+dx},{by+dy})")
+
+
+def _spiral_offsets(radius):
+    """Возвращает список смещений по периметру квадрата радиуса radius."""
+    offsets = []
+    for dx in range(-radius, radius + 1):
+        for dy in range(-radius, radius + 1):
+            if abs(dx) == radius or abs(dy) == radius:
+                offsets.append((dx, dy))
+    return offsets
 
 def _spawn_units_for_base(world, base_pos, team, exclude=None):
     """Спавнит юнитов рядом с базой, не на клетках здания."""
@@ -169,6 +191,13 @@ def main():
     world = create_world(tilemap)
     ui = UI(screen, tilemap)
     fog = Fog(tilemap.width, tilemap.height)
+    # Центрируем камеру на жилом модуле игрока
+    for b in world.buildings:
+        if b.team == "player" and b.building_type == "habitat":
+            cx, cy = b.get_center_world()
+            camera.move_to(cx, cy)
+            b.selected = True   # сразу выделяем — свойства видны
+            break
 
     dragging = False
     drag_start = (0, 0)
