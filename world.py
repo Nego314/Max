@@ -7,7 +7,7 @@ class World:
     def __init__(self, tilemap):
         self.tilemap = tilemap
         self.units = []
-
+        self.buildings = []
         # Словарь: (tile_x, tile_y) -> unit или None.
         # Заполняется при спавне юнита и обновляется при движении.
         self.occupied = {}
@@ -103,7 +103,7 @@ class World:
         """Проходима ли клетка по типу местности (без учёта юнитов)."""
         if tx < 0 or ty < 0 or tx >= self.tilemap.width or ty >= self.tilemap.height:
             return False
-        tile_type = self.tilemap.tiles[ty][tx]
+        tile_type = int(self.tilemap.tiles[ty, tx])
         from settings import WALKABLE_TILES
         return WALKABLE_TILES.get(tile_type, False)
 
@@ -175,3 +175,43 @@ class World:
                 to_release.append(key)
         for key in to_release:
             del self.occupied[key]
+
+    # --- Здания ---
+
+    def add_building(self, building):
+        """
+        Добавляет здание в мир.
+        Занимает все свои клетки в occupied.
+        """
+        self.buildings.append(building)
+
+        # Занимаем все клетки здания
+        for (tx, ty) in building.get_occupied_tiles():
+            self.occupied[(tx, ty)] = building
+
+    def building_at(self, tx, ty):
+        """Здание, занимающее клетку (tx, ty), или None."""
+        obj = self.occupied.get((tx, ty))
+        if obj is not None and hasattr(obj, "get_occupied_tiles"):
+            return obj
+        return None
+
+    def can_place_building(self, building, ignore_walls=False):
+        """
+        Проверяет, можно ли поставить здание в его текущем положении.
+        Все клетки должны быть:
+          - в границах карты,
+          - проходимы по типу местности,
+          - не заняты другим юнитом или зданием.
+        """
+        for (tx, ty) in building.get_occupied_tiles():
+            # Границы карты
+            if tx < 0 or ty < 0 or tx >= self.tilemap.width or ty >= self.tilemap.height:
+                return False
+            # Тип местности
+            if not self.is_tile_walkable(tx, ty):
+                return False
+            # Занятость
+            if (tx, ty) in self.occupied:
+                return False
+        return True

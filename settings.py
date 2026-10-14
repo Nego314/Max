@@ -27,26 +27,73 @@ COLOR_BG = (20, 20, 25)
 COLOR_TEXT = (240, 240, 240)
 
 # Типы местности
-TILE_GRASS = 0
-TILE_WATER = 1
-TILE_ROCK = 2
-TILE_SAND = 3
+
+TILE_REGOLITH = 0      # Реголит — базовый ландшафт
+TILE_DUST = 1          # Пыль — «лунные моря»
+TILE_ROCK = 2          # Скалы — непроходимо
+TILE_CRATER = 3        # Дно кратера — впадина
+TILE_ICE = 4           # Лёд — ресурс (вода)
+TILE_ILMENITE = 5      # Ильменит — ресурс (титан, железо)
+TILE_ANORTHOSITE = 6   # Анортозит — ресурс (алюминий)
+# Гелий-3 — НЕ тип карты, а продукт переработки
+
+# --- Названия типов местности (для UI) ---
+TILE_NAMES = {
+    TILE_REGOLITH:    "Реголит",
+    TILE_DUST:        "Пыль",
+    TILE_ROCK:        "Скалы",
+    TILE_CRATER:      "Кратер",
+    TILE_ICE:         "Лёд",
+    TILE_ILMENITE:    "Ильменит",
+    TILE_ANORTHOSITE: "Анортозит",
+}
 
 TILE_COLORS = {
-    TILE_GRASS: (60, 130, 60),
-    TILE_WATER: (40, 80, 160),
-    TILE_ROCK:  (110, 110, 110),
-    TILE_SAND:  (200, 180, 120),
+    TILE_REGOLITH:  (140, 130, 120),   # серо-коричневый
+    TILE_DUST:      (110, 100, 95),    # темнее, пыльнее
+    TILE_ROCK:      (70, 65, 60),      # тёмно-серый
+    TILE_CRATER:    (30, 25, 35),
+    TILE_ICE:       (170, 210, 230),   # светло-голубой
+    TILE_ILMENITE:  (120, 60, 40),      # тёмно-коричневый
+    TILE_ANORTHOSITE: (220, 210, 200), # светло-серый
 }
 
 WALKABLE_TILES = {
-    TILE_GRASS: True,
-    TILE_SAND:  True,
-    TILE_WATER: False,
-    TILE_ROCK:  False,
+    TILE_REGOLITH:   True,
+    TILE_DUST:       True,
+    TILE_ROCK:       False,   # скалы — непроходимо
+    TILE_CRATER:     True,
+    TILE_ICE:        True,
+    TILE_ILMENITE:   True,
+    TILE_ANORTHOSITE: True,
 }
 
 SHOW_GRID = False
+
+# --- Генерация карты ---
+MAP_SEED = 12345                          # seed для воспроизводимости
+MAP_SAVE_PATH = "map_cache"               # папка для сохранённых карт
+
+# Параметры шума (для генерации ландшафта)
+NOISE_SCALE_BASE = 0.0005                 # крупный шум — базовые зоны
+NOISE_SCALE_DETAIL = 0.0015                # мелкий шум — детали
+NOISE_SCALE_ROCK = 0.0008                 # шум для скал
+NOISE_SCALE_DUST = 0.0008                 # шум для пылевых морей
+
+# Пороги
+THRESHOLD_DUST = 0.55                     # выше — пылевое море
+THRESHOLD_ROCK = 0.68                     # выше — скалы
+THRESHOLD_RESOURCE = 0.75                 # выше — ресурсная жила (редко)
+
+# Плотность ресурсов (вероятность в подходящем регионе)
+DENSITY_ICE = 0.15                         # лёд в кратерах
+DENSITY_ILMENITE = 0.03                    # ильменит в реголите
+DENSITY_ANORTHOSITE = 0.03                 # анортозит в реголите
+
+# Кратеры
+CRATER_COUNT = 500                        # сколько кратеров генерировать
+CRATER_MIN_RADIUS = 20                    # минимальный радиус (клеток)
+CRATER_MAX_RADIUS = 80                    # максимальный радиус
 
 # --- Камера ---
 CAMERA_SPEED_KEYS_FACTOR = 11.0     # × TILE_SIZE, пикс/сек (клавиатура)
@@ -137,17 +184,17 @@ COLONY_POPULATION = [
 # --- Типы юнитов ---
 # Для каждого типа: буква (для портрета), имя, стартовые характеристики
 UNIT_TYPES = {
-    "geologist": {
+     "geologist": {
         "letter": "Г",
-        "name": "Геолог",
-        "color": (180, 220, 180),   # цвет команды задаётся отдельно
+        "name": "Сканер-геолог",
+        "color": (180, 220, 180),
         "hp": 80,
         "armor": 2,
         "attack": 3,
         "vision": 6,
         "atk_range": 2,
         "shots": 1,
-        "speed": 2.5,               # кл./сек
+        "speed": 2.5,
     },
     "engineer": {
         "letter": "И",
@@ -161,17 +208,17 @@ UNIT_TYPES = {
         "shots": 1,
         "speed": 3.0,
     },
-    "soldier": {
+    "signal": {
         "letter": "С",
-        "name": "Солдат",
-        "color": (220, 180, 180),
-        "hp": 120,
-        "armor": 10,
-        "attack": 15,
-        "vision": 8,
-        "atk_range": 6,
-        "shots": 2,
-        "speed": 3.5,
+        "name": "Мобильный радар",
+        "color": (220, 220, 180),
+        "hp": 60,
+        "armor": 1,
+        "attack": 1,
+        "vision": 15,  # глубокий обзор — радар
+        "atk_range": 1,
+        "shots": 0,
+        "speed": 2.0,
     },
 }
 
@@ -182,6 +229,39 @@ MINIMAP_CAMERA_COLOR = (255, 230, 80)   # цвет рамки камеры
 MINIMAP_ALLY_COLOR = (80, 160, 255)     # цвет своих юнитов
 MINIMAP_ENEMY_COLOR = (220, 70, 70)     # цвет врагов
 
+# --- Миникарта: режимы ---
+MINIMAP_MODE_PLAIN = 0        # без ресурсов
+MINIMAP_MODE_RESOURCES = 1    # с ресурсами
+
+# Кнопка переключения
+MINIMAP_BUTTON_HEIGHT = 28
+MINIMAP_BUTTON_COLOR = (50, 50, 70)
+MINIMAP_BUTTON_COLOR_HOVER = (70, 70, 100)
+MINIMAP_BUTTON_TEXT_COLOR = (230, 230, 230)
+
 # --- Туман войны ---
 FOG_EXPLORED_COLOR = (0, 0, 0, 140)   # RGBA — полупрозрачный чёрный для "исследовано, но не видно"
 FOG_UNEXPLORED_COLOR = (0, 0, 0, 255) # RGBA — плотный чёрный для "не исследовано"
+
+# --- Спавн баз ---
+BASE_PLATFORM_SIZE = 6               # размер площадки под базу (клеток)
+BASE_MIN_DISTANCE = 700              # минимум между базами (клеток)
+BASE_RESOURCE_RADIUS = 40            # радиус поиска ресурсов вокруг базы
+BASE_SEARCH_ATTEMPTS = 5000          # сколько попыток искать площадку
+
+# --- Стартовые юниты ---
+START_UNITS_PER_BASE = 3             # юнитов на старте
+START_UNIT_TYPES = ["engineer", "geologist", "signal"]   # типы юнитов
+
+# --- Типы зданий ---
+# Каждое здание: буква, имя, размер (в клетках), цвет, характеристики
+BUILDING_TYPES = {
+    "habitat": {
+        "letter": "Ж",
+        "name": "Жилой модуль",
+        "size": 2,                       # 2×2
+        "color": (180, 180, 220),
+        "hp": 500,
+        "max_hp": 500,
+    },
+}

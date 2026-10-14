@@ -8,12 +8,16 @@ from settings import (
     UI_PANEL_WIDTH, SELECT_RECT_THICKNESS, DEBUG_FONT_SIZE,
 )
 from ui import UI
-from settings import SELECT_RECT_THICKNESS
 from tilemap import TileMap
 from camera import Camera
 from unit import Unit
 from world import World
 from fog import Fog
+from spawn import find_all_base_locations
+from settings import START_UNIT_TYPES
+from building import Building
+from settings import BUILDING_TYPES
+
 
 # --- Инициализация Pygame ---
 pygame.init()
@@ -32,6 +36,7 @@ pygame.display.set_caption("MyRTS — прототип")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("consolas", DEBUG_FONT_SIZE)
 
+
 def screen_to_tile(camera, mx, my):
     """Экранные пиксели → координаты клетки."""
     wx, wy = camera.screen_to_world(mx, my)
@@ -39,40 +44,89 @@ def screen_to_tile(camera, mx, my):
 
 
 def create_world(tilemap):
-    """Создаём мир с юнитами."""
+    """Создаём мир: ищем базы, ставим здание, спавним юнитов."""
     world = World(tilemap)
 
-    # Наши — синие
-    player_tiles = [(10, 10), (11, 10), (12, 10), (10, 11), (11, 11)]
-    for (tx, ty) in player_tiles:
-        world.add_unit(Unit(tx, ty, team="player", unit_type="geologist"))
+    base_locations = find_all_base_locations(
+        tilemap.tiles, count=4, seed=settings.MAP_SEED
+    )
 
-    # Враги — красные
-    enemy_tiles = [(25, 15), (26, 15), (25, 16)]
-    for (tx, ty) in enemy_tiles:
-        world.add_unit(Unit(tx, ty, team="enemy", unit_type="soldier"))
+    if not base_locations:
+        print("[ERROR] Не удалось найти базы")
+        return world
 
+    for i, (bx, by) in enumerate(base_locations):
+        team = "player" if i == 0 else "enemy"
+
+        size = BUILDING_TYPES["habitat"]["size"]
+        half = size // 2
+        bld = Building(bx - half, by - half, building_type="habitat", team=team)
+
+        if not world.can_place_building(bld):
+            print(f"[World] Не могу поставить здание в {bx},{by} для {team}")
+            placed = False
+            for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1)]:
+                bld.tile_x = bx - half + dx
+                bld.tile_y = by - half + dy
+                if world.can_place_building(bld):
+                    placed = True
+                    break
+            if not placed:
+                print(f"[World] Не смог поставить здание для {team}, пропускаю")
+                continue
+
+        world.add_building(bld)
+        print(f"[World] Здание ({team}) поставлено в ({bld.tile_x}, {bld.tile_y})")
+
+        _spawn_units_for_base(world, (bx, by), team, exclude=bld.get_occupied_tiles())
+
+    world.base_locations = base_locations
     return world
 
 
+def _spawn_units_for_base(world, base_pos, team, exclude=None):
+    """Спавнит юнитов рядом с базой, не на клетках здания."""
+    bx, by = base_pos
+    exclude = set(exclude) if exclude else set()
+
+    offsets = [
+        (-3, 0), (-2, 0), (-1, 0), (2, 0), (3, 0), (0, -3), (0, -2),
+        (0, 2), (0, 3), (-2, -2), (2, 2), (-2, 2), (2, -2),
+    ]
+
+    spawned = 0
+    for (dx, dy) in offsets:
+        if spawned >= len(START_UNIT_TYPES):
+            break
+
+        tx = bx + dx
+        ty = by + dy
+
+        if (tx, ty) in exclude:
+            continue
+
+        if not world.is_tile_free(tx, ty):
+            continue
+
+        unit_type = START_UNIT_TYPES[spawned]
+        u = Unit(tx, ty, team=team, unit_type=unit_type)
+        world.add_unit(u)
+        spawned += 1
+
+    if spawned < len(START_UNIT_TYPES):
+        print(f"[World] Заспавнено юнитов для {team}: {spawned}/{len(START_UNIT_TYPES)}")
+
+
 def order_group_move(world, selected_units, click_tile):
-    """
-    Приказ группы на движение к click_tile с сохранением формации.
-    Верхний левый юнит в группе встаёт в click_tile.
-    Остальные сохраняют относительное положение.
-    """
+    """Приказ группы на движение с сохранением формации."""
     if not selected_units:
         return
 
-    # Находим верхний левый юнит (минимальные tile_y, tile_x)
     anchor = min(selected_units, key=lambda u: (u.tile_y, u.tile_x))
-
-    # Относительные смещения от anchor
     offsets = {}
     for u in selected_units:
         offsets[u] = (u.tile_x - anchor.tile_x, u.tile_y - anchor.tile_y)
 
-    # Идеальная целевая клетка для каждого
     for u in selected_units:
         dx, dy = offsets[u]
         want_x = click_tile[0] + dx
@@ -133,39 +187,71 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
+            # --- ЛКМ ---
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Кнопка переключения режима миникарты
+                if ui.minimap.button_contains_point(event.pos):
+                    ui.minimap.handle_click(event.pos)
+                    continue
+
                 # Клик по миникарте — телепорт камеры
                 if ui.minimap.contains_point(event.pos):
                     wx, wy = ui.minimap.screen_to_world(*event.pos)
                     camera.move_to(wx, wy)
                     continue
 
+                # Клик по UI — игнорируем
                 if ui.is_over_ui(event.pos):
-                    continue  # клик по панели — игнорируем
+                    continue
+
+                # Клик по игровому полю — выделение
                 mx, my = event.pos
                 wx, wy = camera.screen_to_world(mx, my)
 
-                clicked = None
-                for u in world.units:
-                    if u.team == "player" and u.contains_point(wx, wy):
-                        clicked = u
-                        break
-
                 shift_held = pygame.key.get_mods() & pygame.KMOD_SHIFT
 
-                if clicked is not None:
+                # 1. Сначала проверяем клик по зданию
+                clicked_building = None
+                for b in world.buildings:
+                    if b.team == "player" and b.contains_point(wx, wy):
+                        clicked_building = b
+                        break
+
+                if clicked_building is not None:
+                    if not shift_held:
+                        for b in world.buildings:
+                            b.selected = False
+                        for u in world.units:
+                            u.selected = False
+                    clicked_building.selected = True
+                    continue
+
+                # 2. Проверяем клик по юниту
+                clicked_unit = None
+                for u in world.units:
+                    if u.team == "player" and u.contains_point(wx, wy):
+                        clicked_unit = u
+                        break
+
+                if clicked_unit is not None:
                     if not shift_held:
                         for u in world.units:
                             u.selected = False
-                    clicked.selected = (not clicked.selected) if shift_held else True
+                        for b in world.buildings:
+                            b.selected = False
+                    clicked_unit.selected = (not clicked_unit.selected) if shift_held else True
                 else:
+                    # 3. Клик по пустому месту — начало drag
                     dragging = True
                     drag_start = (mx, my)
                     drag_end = (mx, my)
                     if not shift_held:
                         for u in world.units:
                             u.selected = False
+                        for b in world.buildings:
+                            b.selected = False
 
+            # --- Отпускание ЛКМ (конец drag) ---
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if dragging:
                     dragging = False
@@ -175,7 +261,6 @@ def main():
                     rx1, ry1 = min(x1, x2), min(y1, y2)
                     rx2, ry2 = max(x1, x2), max(y1, y2)
 
-                    # Слишком маленькая рамка = просто клик, ничего не делаем
                     if (rx2 - rx1) < 5 and (ry2 - ry1) < 5:
                         pass
                     else:
@@ -188,10 +273,12 @@ def main():
                             if wx1 <= u.x <= wx2 and wy1 <= u.y <= wy2:
                                 u.selected = True
 
+            # --- Движение мыши (обновление рамки) ---
             elif event.type == pygame.MOUSEMOTION:
                 if dragging:
                     drag_end = event.pos
 
+            # --- ПКМ (приказ) ---
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
                 if ui.is_over_ui(event.pos):
                     continue
@@ -201,11 +288,9 @@ def main():
                 selected = [u for u in world.units
                             if u.selected and u.team == "player"]
 
-                # Клик по непроходимой клетке — приказ не проходит
                 if not world.is_tile_walkable(*click_tile):
                     continue
 
-                # Клик по клетке с врагом — приказ не проходит
                 occupant = world.unit_at(*click_tile)
                 if occupant is not None and occupant.team != "player":
                     continue
@@ -220,10 +305,9 @@ def main():
         mouse_pos = pygame.mouse.get_pos()
         camera.update(dt, keys, mouse_pos)
 
+        # Все юниты обновляются, даже скрытые
         for u in world.units:
-            # Врагов рисуем только если их клетка видима
-            if u.team == "player" or fog.is_visible(u.tile_x, u.tile_y):
-                u.update(dt, world)
+            u.update(dt, world)
 
         # --- Отрисовка ---
         screen.fill(COLOR_BG)
@@ -232,9 +316,14 @@ def main():
         screen.set_clip(ui.viewport)
         cam_x, cam_y = camera.offset
         tilemap.draw(screen, cam_x, cam_y)
+
+        # Отрисовка зданий (под юнитами)
+        for b in world.buildings:
+            if b.team == "player" or fog.is_visible(b.tile_x, b.tile_y):
+                b.draw(screen, camera)
+
+        # Отрисовка юнитов
         for u in world.units:
-            # Свои — рисуем всегда (они и так в своём тумане)
-            # Врага — только если его клетка видима
             if u.team == "player" or fog.is_visible(u.tile_x, u.tile_y):
                 u.draw(screen, camera)
 
@@ -258,14 +347,14 @@ def main():
 
         # UI поверх всего
         mouse_pos = pygame.mouse.get_pos()
-        ui.draw(camera, pygame.mouse.get_pos(), world, fog)
+        ui.draw(camera, mouse_pos, world, fog)
 
         # Debug
         selected_count = sum(1 for u in world.units
                              if u.selected and u.team == "player")
         debug = font.render(
             f"FPS: {int(clock.get_fps())}  Selected: {selected_count}  "
-            f"Units: {len(world.units)}",
+            f"Units: {len(world.units)}  Buildings: {len(world.buildings)}",
             True, COLOR_TEXT,
         )
         screen.blit(debug, (ui.viewport.x + 10, 10))
